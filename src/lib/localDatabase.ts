@@ -167,10 +167,10 @@ const DEFAULT_ENQUIRIES: Enquiry[] = [
     fee_shared: true,
     payment: 'Completed',
     notes: 'Interested in evening batch. Inquired via call.',
-    interested: null,
-    follow_up_done: null,
-    can_follow_up: null,
-    next_reminder_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(), // 1 day ago (due now)
+    interested: true,
+    follow_up_done: true,
+    can_follow_up: true,
+    next_reminder_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
     last_reminded_at: null,
     created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
     updated_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
@@ -184,13 +184,149 @@ const DEFAULT_ENQUIRIES: Enquiry[] = [
     fee_shared: false,
     payment: 'Pending',
     notes: 'Parent called. Asked for demo class schedule.',
-    interested: true,
+    interested: null,
     follow_up_done: null,
     can_follow_up: null,
-    next_reminder_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // Tomorrow
+    next_reminder_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     last_reminded_at: null,
-    created_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-    updated_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+    created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+    updated_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString()
+  },
+  {
+    id: 'enq-3',
+    contact_name: 'Rahul Verma',
+    contact_phone: '+91 98111 22334',
+    category_id: 'cat-tech',
+    course_id: 'course-fs',
+    fee_shared: true,
+    payment: 'Partially Paid',
+    notes: 'Requested weekend offline batches and syllabus breakdown.',
+    interested: true,
+    follow_up_done: true,
+    can_follow_up: true,
+    next_reminder_at: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
+    last_reminded_at: null,
+    created_at: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
+    updated_at: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString()
+  },
+  {
+    id: 'enq-4',
+    contact_name: 'Sneha Patel',
+    contact_phone: '+91 97234 56789',
+    category_id: 'cat-tech',
+    course_id: 'course-ds',
+    fee_shared: true,
+    payment: 'Completed',
+    notes: 'Looking for Generative AI module and career placement support.',
+    interested: true,
+    follow_up_done: true,
+    can_follow_up: true,
+    next_reminder_at: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
+    last_reminded_at: null,
+    created_at: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000).toISOString(),
+    updated_at: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000).toISOString()
+  },
+  {
+    id: 'enq-5',
+    contact_name: 'Karthik Raja',
+    contact_phone: '+91 98450 12345',
+    category_id: 'cat-tech',
+    course_id: 'course-fs',
+    fee_shared: true,
+    payment: 'Completed',
+    notes: 'Enrolled in full stack developer batch last month.',
+    interested: true,
+    follow_up_done: true,
+    can_follow_up: true,
+    next_reminder_at: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000).toISOString(),
+    last_reminded_at: null,
+    created_at: new Date(Date.now() - 35 * 24 * 60 * 60 * 1000).toISOString(), // Previous month
+    updated_at: new Date(Date.now() - 35 * 24 * 60 * 60 * 1000).toISOString()
+  },
+  {
+    id: 'enq-6',
+    contact_name: 'Ananya Iyer',
+    contact_phone: '+91 99887 65432',
+    category_id: 'cat-tech',
+    course_id: 'course-fs',
+    fee_shared: false,
+    payment: 'Pending',
+    notes: 'Inquired about React & Node curriculum last month.',
+    interested: null,
+    follow_up_done: null,
+    can_follow_up: null,
+    next_reminder_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+    last_reminded_at: null,
+    created_at: new Date(Date.now() - 42 * 24 * 60 * 60 * 1000).toISOString(), // Previous month
+    updated_at: new Date(Date.now() - 42 * 24 * 60 * 60 * 1000).toISOString()
+  },
+  {
+    id: 'enq-7',
+    contact_name: 'Vikram Singh',
+    contact_phone: '+91 91234 56780',
+    category_id: 'cat-tech',
+    course_id: 'course-ds',
+    fee_shared: true,
+    payment: 'Partially Paid',
+    notes: 'Joined Data Science cohort last month.',
+    interested: true,
+    follow_up_done: true,
+    can_follow_up: true,
+    next_reminder_at: new Date(Date.now() - 28 * 24 * 60 * 60 * 1000).toISOString(),
+    last_reminded_at: null,
+    created_at: new Date(Date.now() - 38 * 24 * 60 * 60 * 1000).toISOString(), // Previous month
+    updated_at: new Date(Date.now() - 38 * 24 * 60 * 60 * 1000).toISOString()
+  },
+  {
+    id: 'enq-8',
+    contact_name: 'Meera Nair',
+    contact_phone: '+91 94440 98765',
+    category_id: 'cat-academy',
+    course_id: 'course-neet',
+    fee_shared: true,
+    payment: 'Completed',
+    notes: 'Admitted in NEET crash batch last month.',
+    interested: true,
+    follow_up_done: true,
+    can_follow_up: true,
+    next_reminder_at: new Date(Date.now() - 32 * 24 * 60 * 60 * 1000).toISOString(),
+    last_reminded_at: null,
+    created_at: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString(), // Previous month
+    updated_at: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString()
+  },
+  {
+    id: 'enq-9',
+    contact_name: 'Rohan Gupta',
+    contact_phone: '+91 93322 11009',
+    category_id: 'cat-tech',
+    course_id: 'course-fs',
+    fee_shared: true,
+    payment: 'Completed',
+    notes: 'Enrolled 2 months back. Course in progress.',
+    interested: true,
+    follow_up_done: true,
+    can_follow_up: true,
+    next_reminder_at: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(),
+    last_reminded_at: null,
+    created_at: new Date(Date.now() - 68 * 24 * 60 * 60 * 1000).toISOString(), // 2 months ago
+    updated_at: new Date(Date.now() - 68 * 24 * 60 * 60 * 1000).toISOString()
+  },
+  {
+    id: 'enq-10',
+    contact_name: 'Divya Krishnan',
+    contact_phone: '+91 95566 77889',
+    category_id: 'cat-academy',
+    course_id: 'course-jee',
+    fee_shared: true,
+    payment: 'Completed',
+    notes: 'JEE 1-year foundation registration 2 months ago.',
+    interested: true,
+    follow_up_done: true,
+    can_follow_up: true,
+    next_reminder_at: new Date(Date.now() - 62 * 24 * 60 * 60 * 1000).toISOString(),
+    last_reminded_at: null,
+    created_at: new Date(Date.now() - 72 * 24 * 60 * 60 * 1000).toISOString(), // 2 months ago
+    updated_at: new Date(Date.now() - 72 * 24 * 60 * 60 * 1000).toISOString()
   }
 ];
 
@@ -272,7 +408,13 @@ export function deleteLocalCourse(id: string): void {
 }
 
 export function getLocalEnquiries(): Enquiry[] {
-  return getStorageItem<Enquiry[]>('enquiries', DEFAULT_ENQUIRIES);
+  const items = getStorageItem<Enquiry[]>('enquiries', DEFAULT_ENQUIRIES);
+  // If user only had the 2 initial seed items, seamlessly enrich with multi-month data
+  if (items && items.length <= 2 && items.every(i => i.id === 'enq-1' || i.id === 'enq-2')) {
+    setStorageItem('enquiries', DEFAULT_ENQUIRIES);
+    return DEFAULT_ENQUIRIES;
+  }
+  return items;
 }
 
 export function addLocalEnquiry(enquiry: Omit<Enquiry, 'id' | 'created_at' | 'updated_at' | 'next_reminder_at' | 'last_reminded_at'>): Enquiry {

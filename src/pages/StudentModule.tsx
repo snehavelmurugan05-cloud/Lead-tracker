@@ -6,18 +6,14 @@ import {
   Users,
   Phone,
   Calendar,
-  CheckCircle2,
-  Sparkles,
-  UserPlus,
-  ArrowRight,
-  ArrowLeft,
-  Code,
-  User,
+  CreditCard,
   Clock,
   Laptop,
-  CreditCard,
-  Layers,
-  X
+  ArrowRight,
+  ArrowLeft,
+  User,
+  UserPlus,
+  Code
 } from 'lucide-react';
 import { getLocalCourses, getLocalCategories, getLocalEnquiries } from '../lib/localDatabase';
 import type { Course, Category, Enquiry } from '../lib/localDatabase';
@@ -31,10 +27,24 @@ interface StudentProps {
   onNavigateToLead?: (prefillName?: string) => void;
 }
 
+const MONTHS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December'
+];
+
 export const StudentModule: React.FC<StudentProps> = ({
   isDemo,
   refreshTrigger,
-  onUpdate,
   onNavigateToLead
 }) => {
   const [courses, setCourses] = useState<Course[]>([]);
@@ -47,9 +57,10 @@ export const StudentModule: React.FC<StudentProps> = ({
   // Selected course for navigating to its dedicated Registered Student Details page
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
 
-  // Search and filter inside the student details page
+  // Search, Status, and Month filters inside the student details page
   const [studentSearch, setStudentSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'resolved' | 'pending'>('all');
+  const [selectedMonth, setSelectedMonth] = useState<string>('all'); // 'all' or month index '0' - '11'
 
   const fetchStudentData = async () => {
     setIsLoading(true);
@@ -120,31 +131,55 @@ export const StudentModule: React.FC<StudentProps> = ({
       const courseDuration = getCourseDuration(activeCourse);
       const allCourseStudents = enquiries.filter(e => e.course_id === activeCourse.id);
 
-      // Filter students inside this course page
+      // Filter students by Month, Status, and Search
       const filteredStudents = allCourseStudents.filter(student => {
+        // 1. Month Filter
+        const studentDate = student.created_at ? new Date(student.created_at) : null;
+        const matchesMonth =
+          selectedMonth === 'all' ||
+          (studentDate !== null && !isNaN(studentDate.getTime()) && studentDate.getMonth() === parseInt(selectedMonth, 10));
+
+        // 2. Search Filter
         const matchesSearch =
           student.contact_name.toLowerCase().includes(studentSearch.toLowerCase()) ||
           (student.contact_phone && student.contact_phone.includes(studentSearch)) ||
           (student.notes && student.notes.toLowerCase().includes(studentSearch.toLowerCase()));
 
+        // 3. Status Filter
         const isResolved = student.interested !== null && student.follow_up_done !== null && student.can_follow_up !== null;
         const matchesStatus =
           statusFilter === 'all' ||
           (statusFilter === 'resolved' && isResolved) ||
           (statusFilter === 'pending' && !isResolved);
 
-        return matchesSearch && matchesStatus;
+        return matchesMonth && matchesSearch && matchesStatus;
       });
 
-      const resolvedCount = allCourseStudents.filter(e => e.interested !== null && e.follow_up_done !== null && e.can_follow_up !== null).length;
-      const pendingCount = allCourseStudents.length - resolvedCount;
+      // Students matching the selected month (for accurate status counts)
+      const studentsInSelectedMonth = allCourseStudents.filter(student => {
+        const studentDate = student.created_at ? new Date(student.created_at) : null;
+        return (
+          selectedMonth === 'all' ||
+          (studentDate !== null && !isNaN(studentDate.getTime()) && studentDate.getMonth() === parseInt(selectedMonth, 10))
+        );
+      });
+
+      const resolvedCount = studentsInSelectedMonth.filter(
+        e => e.interested !== null && e.follow_up_done !== null && e.can_follow_up !== null
+      ).length;
+      const pendingCount = studentsInSelectedMonth.length - resolvedCount;
 
       return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
           {/* Top Bar: Back Button & Breadcrumbs */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
             <button
-              onClick={() => setSelectedCourseId(null)}
+              onClick={() => {
+                setSelectedCourseId(null);
+                setSelectedMonth('all');
+                setStudentSearch('');
+                setStatusFilter('all');
+              }}
               className="btn btn-secondary"
               style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', fontWeight: 700 }}
             >
@@ -215,8 +250,12 @@ export const StudentModule: React.FC<StudentProps> = ({
               </div>
 
               <div style={{ padding: '10px 18px', borderRadius: '12px', backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--card-border))', textAlign: 'center' }}>
-                <div style={{ fontSize: '11px', color: 'hsl(var(--muted))', fontWeight: 700, textTransform: 'uppercase' }}>Enrolled</div>
-                <div style={{ fontSize: '17px', fontWeight: 800, color: 'hsl(var(--foreground))' }}>{allCourseStudents.length} Students</div>
+                <div style={{ fontSize: '11px', color: 'hsl(var(--muted))', fontWeight: 700, textTransform: 'uppercase' }}>
+                  {selectedMonth === 'all' ? 'Enrolled' : `${MONTHS[parseInt(selectedMonth, 10)]} Leads`}
+                </div>
+                <div style={{ fontSize: '17px', fontWeight: 800, color: 'hsl(var(--foreground))' }}>
+                  {studentsInSelectedMonth.length} Students
+                </div>
               </div>
 
               {onNavigateToLead && (
@@ -232,7 +271,7 @@ export const StudentModule: React.FC<StudentProps> = ({
             </div>
           </div>
 
-          {/* Student Search & Status Filter Bar */}
+          {/* Student Status, Month Dropdown Filter & Search Bar */}
           <div
             className="glass-card"
             style={{
@@ -240,17 +279,18 @@ export const StudentModule: React.FC<StudentProps> = ({
               justifyContent: 'space-between',
               alignItems: 'center',
               flexWrap: 'wrap',
-              gap: '16px',
+              gap: '14px',
               padding: '16px 20px'
             }}
           >
+            {/* Status Pills */}
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               <button
                 onClick={() => setStatusFilter('all')}
                 className={`btn ${statusFilter === 'all' ? 'btn-primary' : 'btn-secondary'}`}
                 style={{ fontSize: '13px', padding: '6px 14px' }}
               >
-                All Students ({allCourseStudents.length})
+                All Students ({studentsInSelectedMonth.length})
               </button>
               <button
                 onClick={() => setStatusFilter('resolved')}
@@ -268,16 +308,53 @@ export const StudentModule: React.FC<StudentProps> = ({
               </button>
             </div>
 
-            <div style={{ position: 'relative', width: '100%', maxWidth: '300px' }}>
-              <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--muted))' }} />
-              <input
-                type="text"
-                placeholder="Search registered students..."
-                className="form-input"
-                style={{ paddingLeft: '36px', fontSize: '13px' }}
-                value={studentSearch}
-                onChange={e => setStudentSearch(e.target.value)}
-              />
+            {/* Month Dropdown Filter & Search Input */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+              {/* Month Dropdown Filter */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Calendar size={16} style={{ color: 'hsl(var(--muted))' }} />
+                <select
+                  id="student-month-filter"
+                  className="form-input"
+                  style={{
+                    padding: '7px 12px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    width: 'auto',
+                    minWidth: '150px',
+                    cursor: 'pointer'
+                  }}
+                  value={selectedMonth}
+                  onChange={e => setSelectedMonth(e.target.value)}
+                  title="Filter registered students by month"
+                >
+                  <option value="all">All Months ({allCourseStudents.length})</option>
+                  {MONTHS.map((m, idx) => {
+                    const count = allCourseStudents.filter(s => {
+                      const d = s.created_at ? new Date(s.created_at) : null;
+                      return d !== null && !isNaN(d.getTime()) && d.getMonth() === idx;
+                    }).length;
+                    return (
+                      <option key={m} value={String(idx)}>
+                        {m} {count > 0 ? `(${count})` : ''}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              {/* Search Registered Students */}
+              <div style={{ position: 'relative', width: '220px' }}>
+                <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--muted))' }} />
+                <input
+                  type="text"
+                  placeholder="Search students..."
+                  className="form-input"
+                  style={{ paddingLeft: '36px', fontSize: '13px', width: '100%' }}
+                  value={studentSearch}
+                  onChange={e => setStudentSearch(e.target.value)}
+                />
+              </div>
             </div>
           </div>
 
@@ -285,12 +362,22 @@ export const StudentModule: React.FC<StudentProps> = ({
           {filteredStudents.length === 0 ? (
             <div className="glass-card" style={{ textAlign: 'center', padding: '48px 24px', color: 'hsl(var(--muted))' }}>
               <Users size={36} style={{ color: 'hsl(var(--muted))', display: 'block', margin: '0 auto 12px' }} />
-              <p style={{ fontSize: '16px', fontWeight: 700, margin: '0 0 8px 0' }}>
-                {allCourseStudents.length === 0
-                  ? `No students currently registered for ${activeCourse.name}.`
-                  : 'No students match your search filter.'}
+              <p style={{ fontSize: '16px', fontWeight: 700, margin: '0 0 8px 0', color: 'hsl(var(--foreground))' }}>
+                {selectedMonth !== 'all'
+                  ? `No students registered in ${MONTHS[parseInt(selectedMonth, 10)]} for ${activeCourse.name}.`
+                  : allCourseStudents.length === 0
+                    ? `No students currently registered for ${activeCourse.name}.`
+                    : 'No students match your search filter.'}
               </p>
-              {allCourseStudents.length === 0 && onNavigateToLead && (
+              {selectedMonth !== 'all' ? (
+                <button
+                  onClick={() => setSelectedMonth('all')}
+                  className="btn btn-secondary"
+                  style={{ marginTop: '10px' }}
+                >
+                  View All Months
+                </button>
+              ) : allCourseStudents.length === 0 && onNavigateToLead ? (
                 <button
                   onClick={() => onNavigateToLead(activeCourse.name)}
                   className="btn btn-primary"
@@ -298,7 +385,7 @@ export const StudentModule: React.FC<StudentProps> = ({
                 >
                   Register First Student →
                 </button>
-              )}
+              ) : null}
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '18px' }}>
@@ -340,7 +427,7 @@ export const StudentModule: React.FC<StudentProps> = ({
                             {student.contact_name}
                           </div>
                           <div style={{ fontSize: '12px', color: 'hsl(var(--muted))' }}>
-                            Enrolled: {new Date(student.created_at).toLocaleDateString()}
+                            Enrolled: {new Date(student.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                           </div>
                         </div>
                       </div>
@@ -398,7 +485,7 @@ export const StudentModule: React.FC<StudentProps> = ({
   }
 
   // -------------------------------------------------------------
-  // VIEW 1: COURSES CATALOG VIEW (MATCHING ATTACHED UI REFERENCE)
+  // VIEW 1: COURSES CATALOG VIEW
   // -------------------------------------------------------------
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -487,7 +574,7 @@ export const StudentModule: React.FC<StudentProps> = ({
         </div>
       </div>
 
-      {/* Courses Grid with Cards Matching Reference Image */}
+      {/* Courses Grid */}
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '8px' }}>
           <div>
@@ -495,7 +582,7 @@ export const StudentModule: React.FC<StudentProps> = ({
               Created Courses ({filteredCourses.length})
             </h2>
             <p style={{ fontSize: '13px', color: 'hsl(var(--muted))', margin: 0 }}>
-              Click <strong>Get Student Details</strong> on any course card to view its registered students on a dedicated page.
+              Click <strong>Get Student Details</strong> on any course card to view its registered students.
             </p>
           </div>
         </div>
@@ -509,7 +596,6 @@ export const StudentModule: React.FC<StudentProps> = ({
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '24px' }}>
             {filteredCourses.map(course => {
-              const category = categories.find(c => c.id === course.category_id);
               const courseStudents = enquiries.filter(e => e.course_id === course.id);
               const duration = getCourseDuration(course);
               const coverImage = getCourseCoverImage(course);
@@ -521,7 +607,7 @@ export const StudentModule: React.FC<StudentProps> = ({
                   className="app-course-card"
                   style={{ display: 'flex', flexDirection: 'column' }}
                 >
-                  {/* Top Photographic Banner with Best Seller Badge (matching reference UI) */}
+                  {/* Top Photographic Banner with Best Seller Badge */}
                   <div className="app-course-banner" style={{ height: '165px' }}>
                     <img
                       src={coverImage}
@@ -534,7 +620,7 @@ export const StudentModule: React.FC<StudentProps> = ({
                     />
                     <div className="app-course-banner-overlay" />
 
-                    {/* Best Seller / Domain Badge on Top-Left */}
+                    {/* Best Seller / Domain Badge */}
                     <div className="bestseller-badge">
                       Best Seller
                     </div>
@@ -559,7 +645,7 @@ export const StudentModule: React.FC<StudentProps> = ({
                       {course.name}
                     </h3>
 
-                    {/* Blue Underline Accent Line (matching reference UI) */}
+                    {/* Accent Line */}
                     <div className="course-card-accent-line" />
 
                     {/* Course Description */}
@@ -580,9 +666,9 @@ export const StudentModule: React.FC<StudentProps> = ({
                       </p>
                     )}
 
-                    {/* 4 Feature Rows with Circular Pastel Icon Badges (matching reference UI) */}
+                    {/* 4 Feature Rows */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '9px', margin: '4px 0 12px 0' }}>
-                      {/* 1. Duration (Cyan circle) */}
+                      {/* 1. Duration */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13.5px', color: 'hsl(var(--muted-foreground))' }}>
                         <div className="feature-circle-icon" style={{ backgroundColor: '#e0f2fe', color: '#0284c7' }}>
                           <Clock size={15} />
@@ -590,7 +676,7 @@ export const StudentModule: React.FC<StudentProps> = ({
                         <span>Duration: <strong style={{ color: 'hsl(var(--foreground))' }}>{duration}</strong></span>
                       </div>
 
-                      {/* 2. Registered Students (Amber circle) */}
+                      {/* 2. Registered Students */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13.5px', color: 'hsl(var(--muted-foreground))' }}>
                         <div className="feature-circle-icon" style={{ backgroundColor: '#fef3c7', color: '#d97706' }}>
                           <Users size={15} />
@@ -598,7 +684,7 @@ export const StudentModule: React.FC<StudentProps> = ({
                         <span>Enrolled: <strong style={{ color: 'hsl(var(--foreground))' }}>{courseStudents.length} Registered Students</strong></span>
                       </div>
 
-                      {/* 3. Tuition Fee (Blue circle) */}
+                      {/* 3. Tuition Fee */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13.5px', color: 'hsl(var(--muted-foreground))' }}>
                         <div className="feature-circle-icon" style={{ backgroundColor: '#d2ebf1', color: '#1f4854' }}>
                           <CreditCard size={15} />
@@ -606,7 +692,7 @@ export const StudentModule: React.FC<StudentProps> = ({
                         <span>Tuition Fee: <strong style={{ color: 'hsl(var(--primary))', fontSize: '14.5px' }}>{course.fee || 'Contact for fee'}</strong></span>
                       </div>
 
-                      {/* 4. Training Mode (Green circle) */}
+                      {/* 4. Training Mode */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13.5px', color: 'hsl(var(--muted-foreground))' }}>
                         <div className="feature-circle-icon" style={{ backgroundColor: '#dcfce7', color: '#16a34a' }}>
                           <Laptop size={15} />
@@ -615,10 +701,13 @@ export const StudentModule: React.FC<StudentProps> = ({
                       </div>
                     </div>
 
-                    {/* Centered Solid Blue Button: Get Student Details (navigates to dedicated page) */}
+                    {/* Centered Button: Get Student Details */}
                     <button
                       className="btn-get-student-details"
-                      onClick={() => setSelectedCourseId(course.id)}
+                      onClick={() => {
+                        setSelectedCourseId(course.id);
+                        setSelectedMonth('all');
+                      }}
                       title={`Open registered student details for ${course.name}`}
                     >
                       <span>Get Student Details</span>
