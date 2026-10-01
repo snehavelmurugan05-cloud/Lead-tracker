@@ -80,7 +80,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
           }
         }
         setIsLoading(false);
-        setErrorMsg('Invalid admin username or password. (Switch to Employee Portal to log in with work email)');
+        setErrorMsg('Invalid admin credentials. Administrator has standard credentials only. (Switch to Employee Portal to log in with work email)');
         return;
       }
 
@@ -100,7 +100,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
           return;
         } else {
           setIsLoading(false);
-          setErrorMsg('Invalid admin credentials. Please verify your password.');
+          setErrorMsg('Invalid admin credentials. Please verify your standard admin password.');
           return;
         }
       }
@@ -149,7 +149,11 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
       }
 
       setIsLoading(false);
-      setErrorMsg(`No account found matching "${username}". Please verify your email or create an account below.`);
+      if (loginType === 'admin') {
+        setErrorMsg('Invalid admin credentials. Administrator has standard fixed credentials only.');
+      } else {
+        setErrorMsg(`No account found matching "${username}". Please verify your email or create an account below.`);
+      }
     } catch (err: any) {
       setIsLoading(false);
       setErrorMsg(err.message || 'An error occurred during sign in. Please try again.');
@@ -166,6 +170,23 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     const trimmedEmail = regEmail.trim().toLowerCase();
     const trimmedPass = regPassword.trim();
     const trimmedConfirm = regConfirmPassword.trim();
+
+    // Prevent any attempt to create an account for an admin
+    const trimmedNameLower = trimmedName.toLowerCase();
+    const isAttemptingAdmin =
+      trimmedEmail === 'admin' ||
+      trimmedEmail === 'admin@globalminds.com' ||
+      trimmedEmail.startsWith('admin@') ||
+      trimmedEmail.split('@')[0] === 'admin' ||
+      trimmedNameLower === 'admin' ||
+      trimmedNameLower === 'administrator' ||
+      trimmedNameLower.startsWith('admin ') ||
+      trimmedNameLower.endsWith(' admin');
+
+    if (isAttemptingAdmin) {
+      setRegErrorMsg('Cannot create account for an Admin. Administrator has standard credentials only. New account creation is prohibited.');
+      return;
+    }
 
     if (trimmedName.length < 2) {
       setRegErrorMsg('Please enter your full name (minimum 2 characters).');
@@ -289,7 +310,9 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                   type="button"
                   onClick={() => {
                     setLoginType('admin');
+                    setAuthMode('signin');
                     setErrorMsg('');
+                    setRegErrorMsg('');
                   }}
                   className={`portal-tab-btn ${loginType === 'admin' ? 'active' : ''}`}
                 >
@@ -301,10 +324,12 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 
                 {/* Email / Username Input */}
                 <div className="field-group">
-                  <label className="field-label">Your email</label>
+                  <label className="field-label">
+                    {loginType === 'employee' ? 'Your email' : 'Admin Username or Email'}
+                  </label>
                   <input
                     type="text"
-                    placeholder={loginType === 'employee' ? 'Enter your email' : 'Enter admin username'}
+                    placeholder={loginType === 'employee' ? 'Enter your email' : 'Enter admin username (admin)'}
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     required
@@ -318,7 +343,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                   <div className="password-input-wrapper">
                     <input
                       type={showPassword ? 'text' : 'password'}
-                      placeholder="Enter your password"
+                      placeholder={loginType === 'employee' ? 'Enter your password' : 'Enter admin password'}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
@@ -358,7 +383,11 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                     href="#recover-password"
                     onClick={(e) => {
                       e.preventDefault();
-                      alert('Please contact your administrator to reset your password, or use Create Account below.');
+                      if (loginType === 'admin') {
+                        setErrorMsg('Admin uses standard pre-set credentials. Password reset is not permitted.');
+                      } else {
+                        setErrorMsg('Please contact your administrator to reset your employee password.');
+                      }
                     }}
                     className="recover-password-link"
                   >
@@ -372,24 +401,26 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                   disabled={isLoading}
                   className="signin-action-btn"
                 >
-                  {isLoading ? 'SIGNING IN...' : 'SIGN IN'}
+                  {isLoading ? 'SIGNING IN...' : loginType === 'admin' ? 'SIGN IN AS ADMIN' : 'SIGN IN'}
                 </button>
 
-                {/* Switch to Create Account */}
-                <div className="create-account-sublink">
-                  <span>Don't have an account? </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAuthMode('register');
-                      setErrorMsg('');
-                      setRegErrorMsg('');
-                    }}
-                    className="switch-link-btn"
-                  >
-                    Create Account
-                  </button>
-                </div>
+                {/* Switch to Create Account: Employee Only */}
+                {loginType === 'employee' && (
+                  <div className="create-account-sublink">
+                    <span>Don't have an account? </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAuthMode('register');
+                        setErrorMsg('');
+                        setRegErrorMsg('');
+                      }}
+                      className="switch-link-btn"
+                    >
+                      Create Account
+                    </button>
+                  </div>
+                )}
 
               </form>
             </div>
@@ -398,8 +429,8 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             <div className="login-form-wrapper">
               
               <div style={{ marginBottom: '14px' }}>
-                <h3 className="create-acc-heading">CREATE ACCOUNT</h3>
-                <p className="create-acc-sub">Register employee email &amp; password</p>
+                <h3 className="create-acc-heading">CREATE EMPLOYEE ACCOUNT</h3>
+                <p className="create-acc-sub">Register employee work email &amp; password. (Admin accounts cannot be created)</p>
               </div>
 
               <form onSubmit={handleRegisterSubmit} className="login-form-inner">

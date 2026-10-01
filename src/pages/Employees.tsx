@@ -138,6 +138,20 @@ const Employees: React.FC<EmployeesProps> = ({ isDemo }) => {
       alert('Please fill out Name, Role, and Contact Number.');
       return;
     }
+
+    const cleanEmail = email ? email.trim().toLowerCase() : '';
+    const cleanName = name.trim().toLowerCase();
+    if (
+      cleanEmail === 'admin' ||
+      cleanEmail === 'admin@globalminds.com' ||
+      cleanEmail.startsWith('admin@') ||
+      cleanName === 'admin' ||
+      cleanName === 'administrator'
+    ) {
+      alert('Cannot create an account for an Admin. Administrator has standard credentials only.');
+      return;
+    }
+
     if (contactNumber.length !== 10) {
       setContactError('Contact number must be exactly 10 digits.');
       hasError = true;

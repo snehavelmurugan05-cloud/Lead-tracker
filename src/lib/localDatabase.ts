@@ -561,6 +561,20 @@ export function getLocalEmployees(): Employee[] {
 }
 
 export function saveLocalEmployee(employee: Omit<Employee, 'id'>): Employee {
+  const cleanEmail = (employee.email || '').trim().toLowerCase();
+  const cleanName = (employee.name || '').trim().toLowerCase();
+  const cleanUsername = (employee.username || '').trim().toLowerCase();
+  if (
+    cleanEmail === 'admin' ||
+    cleanEmail === 'admin@globalminds.com' ||
+    cleanEmail.startsWith('admin@') ||
+    cleanUsername === 'admin' ||
+    cleanName === 'admin' ||
+    cleanName === 'administrator'
+  ) {
+    throw new Error('Admin account cannot be created. Administrator uses standard pre-configured credentials only.');
+  }
+
   const employees = getLocalEmployees();
   const newEmployee: Employee = {
     ...employee,
