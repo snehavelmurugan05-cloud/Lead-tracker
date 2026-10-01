@@ -54,6 +54,9 @@ export const App: React.FC = () => {
     if (currentUser?.role === 'employee') {
       return hash === 'daily-reports' ? 'daily-reports' : 'employee-tasks';
     }
+    if (currentUser?.role === 'sales') {
+      return hash === 'notes' ? 'notes' : 'dashboard';
+    }
     return hash || 'dashboard';
   });
 
@@ -92,6 +95,14 @@ export const App: React.FC = () => {
           // Strictly prevent employee from accessing admin routes
           setActiveTab('employee-tasks');
           window.location.hash = 'employee-tasks';
+        }
+      } else if (currentUser.role === 'sales') {
+        const validSalesTabs = ['dashboard', 'notes'];
+        if (validSalesTabs.includes(hash)) {
+          setActiveTab(hash);
+        } else {
+          setActiveTab('dashboard');
+          window.location.hash = 'dashboard';
         }
       } else {
         // Admin user
@@ -200,6 +211,9 @@ export const App: React.FC = () => {
       if (session.role === 'employee') {
         setActiveTab('employee-tasks');
         window.location.hash = 'employee-tasks';
+      } else if (session.role === 'sales') {
+        setActiveTab('dashboard');
+        window.location.hash = 'dashboard';
       } else {
         setActiveTab('dashboard');
         window.location.hash = 'dashboard';
@@ -312,6 +326,54 @@ export const App: React.FC = () => {
     );
   }
 
+  // Render Sales portal (Segregated for Sales role)
+  if (currentUser.role === 'sales') {
+    return (
+      <div className="app-container">
+        {/* Background design elements */}
+        <div className="bg-gradient-mesh" />
+
+        {/* Sidebar Navigation for Sales */}
+        <Sidebar
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          isDemo={isDemo}
+          theme={theme}
+          toggleTheme={toggleTheme}
+          onLogout={handleLogout}
+          currentUser={currentUser}
+          pendingCount={pendingCount}
+          pendingNotesCount={pendingNotesCount}
+        />
+
+        {/* Main Sales Viewport */}
+        <main className="main-content">
+          <Header
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            pendingCount={pendingCount}
+            theme={theme}
+            toggleTheme={toggleTheme}
+            currentUser={currentUser}
+          />
+
+          <div style={{ marginTop: '8px' }}>
+            {activeTab === 'notes' ? (
+              <Notes />
+            ) : (
+              <Dashboard
+                isDemo={isDemo}
+                refreshTrigger={refreshTrigger}
+                onUpdate={handleDatabaseUpdate}
+                onNavigateToLead={handleNavigateToLead}
+              />
+            )}
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   // Render Admin portal tabs
   const renderAdminTab = () => {
     switch (activeTab) {
@@ -322,6 +384,8 @@ export const App: React.FC = () => {
             refreshTrigger={refreshTrigger}
             onUpdate={handleDatabaseUpdate}
             onNavigateToLead={handleNavigateToLead}
+            currentUser={currentUser}
+            onNavigateTab={setActiveTab}
           />
         );
       case 'leads':
@@ -407,6 +471,9 @@ export const App: React.FC = () => {
             isDemo={isDemo}
             refreshTrigger={refreshTrigger}
             onUpdate={handleDatabaseUpdate}
+            onNavigateToLead={handleNavigateToLead}
+            currentUser={currentUser}
+            onNavigateTab={setActiveTab}
           />
         );
     }

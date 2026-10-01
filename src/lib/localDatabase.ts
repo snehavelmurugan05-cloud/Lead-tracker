@@ -33,6 +33,8 @@ export interface Enquiry {
   updated_at: string;
 }
 
+export type NoteStage = 'Reached Out' | 'Pipeline' | 'Converted' | 'To Be Follow Up' | 'Delivery Due';
+
 export interface Note {
   id: string;
   content: string;
@@ -40,10 +42,11 @@ export interface Note {
   reminderDate?: string;
   is_completed?: boolean;
   action_item?: 'Pending' | 'Completed' | string;
+  stage?: NoteStage | string;
 }
 
 export interface UserSession {
-  role: 'admin' | 'employee';
+  role: 'admin' | 'employee' | 'sales';
   id?: string;
   name: string;
   username: string;
@@ -471,34 +474,204 @@ export function resetLocalDatabase(): void {
   localStorage.removeItem(STORAGE_PREFIX + 'notes');
 }
 
+export const DEFAULT_NOTES: Note[] = [
+  // Reached Out (6)
+  {
+    id: 'note-ro-1',
+    content: 'Client requested syllabus for Data Science & AI. Reached out with detailed curriculum syllabus.',
+    timestamp: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+    stage: 'Reached Out',
+    action_item: 'Reached Out',
+    reminderDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    is_completed: false
+  },
+  {
+    id: 'note-ro-2',
+    content: 'Initial call with Rahul regarding German A1/A2 certification schedule and fee structure.',
+    timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+    stage: 'Reached Out',
+    action_item: 'Reached Out',
+    reminderDate: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString().split('T')[0],
+    is_completed: false
+  },
+  {
+    id: 'note-ro-3',
+    content: 'Contacted prospective candidate for Full Stack Web Development cohort starting next month.',
+    timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
+    stage: 'Reached Out',
+    action_item: 'Reached Out',
+    reminderDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    is_completed: false
+  },
+  {
+    id: 'note-ro-4',
+    content: 'Introduced Machine Learning & AI course roadmap to Bangalore campus student group.',
+    timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
+    stage: 'Reached Out',
+    action_item: 'Reached Out',
+    is_completed: false
+  },
+  {
+    id: 'note-ro-5',
+    content: 'Sent NEET counseling guidance handbook to parent enquiry via WhatsApp and email.',
+    timestamp: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(),
+    stage: 'Reached Out',
+    action_item: 'Reached Out',
+    is_completed: false
+  },
+  {
+    id: 'note-ro-6',
+    content: 'Reached out to JEE Mains coaching aspirant regarding weekend offline test series.',
+    timestamp: new Date(Date.now() - 10 * 60 * 60 * 1000).toISOString(),
+    stage: 'Reached Out',
+    action_item: 'Reached Out',
+    is_completed: false
+  },
+
+  // Pipeline (4)
+  {
+    id: 'note-pipe-1',
+    content: 'Candidate attending counseling evaluation demo on Saturday; discussing 2-part tuition installment.',
+    timestamp: new Date(Date.now() - 14 * 60 * 60 * 1000).toISOString(),
+    stage: 'Pipeline',
+    action_item: 'Pipeline',
+    reminderDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    is_completed: false
+  },
+  {
+    id: 'note-pipe-2',
+    content: 'Reviewing corporate sponsorship proposal for German Business Language training (12 employees).',
+    timestamp: new Date(Date.now() - 18 * 60 * 60 * 1000).toISOString(),
+    stage: 'Pipeline',
+    action_item: 'Pipeline',
+    reminderDate: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString().split('T')[0],
+    is_completed: false
+  },
+  {
+    id: 'note-pipe-3',
+    content: 'Student shortlisting Full Stack React vs Python Data Science; scheduled mentor consultation.',
+    timestamp: new Date(Date.now() - 22 * 60 * 60 * 1000).toISOString(),
+    stage: 'Pipeline',
+    action_item: 'Pipeline',
+    is_completed: false
+  },
+  {
+    id: 'note-pipe-4',
+    content: 'Evaluating educational loan pre-approval for Data Science PG Program with partnering bank.',
+    timestamp: new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString(),
+    stage: 'Pipeline',
+    action_item: 'Pipeline',
+    is_completed: false
+  },
+
+  // Converted (2)
+  {
+    id: 'note-conv-1',
+    content: 'Student enrolled successfully for Data Science & AI batch! First installment payment cleared.',
+    timestamp: new Date(Date.now() - 32 * 60 * 60 * 1000).toISOString(),
+    stage: 'Converted',
+    action_item: 'Converted',
+    is_completed: true
+  },
+  {
+    id: 'note-conv-2',
+    content: 'German B2 intensive course admission finalized. LMS student credentials activated.',
+    timestamp: new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString(),
+    stage: 'Converted',
+    action_item: 'Converted',
+    is_completed: true
+  },
+
+  // To Be Follow Up (2)
+  {
+    id: 'note-fup-1',
+    content: 'Follow-up call requested by client on Monday morning to confirm batch timing availability.',
+    timestamp: new Date(Date.now() - 40 * 60 * 60 * 1000).toISOString(),
+    stage: 'To Be Follow Up',
+    action_item: 'To Be Follow Up',
+    reminderDate: new Date(Date.now() + 18 * 60 * 60 * 1000).toISOString().split('T')[0],
+    is_completed: false
+  },
+  {
+    id: 'note-fup-2',
+    content: 'Follow up with university campus lead coordinator regarding group admission discount.',
+    timestamp: new Date(Date.now() - 44 * 60 * 60 * 1000).toISOString(),
+    stage: 'To Be Follow Up',
+    action_item: 'To Be Follow Up',
+    reminderDate: new Date(Date.now() + 36 * 60 * 60 * 1000).toISOString().split('T')[0],
+    is_completed: false
+  },
+
+  // Delivery Due (1)
+  {
+    id: 'note-del-1',
+    content: 'Course completion certificate and study material kit delivery due for graduating batch.',
+    timestamp: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
+    stage: 'Delivery Due',
+    action_item: 'Delivery Due',
+    reminderDate: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString().split('T')[0],
+    is_completed: false
+  }
+];
+
+const NOTES_INITIALIZED_KEY = 'todolist_notes_initialized_v2';
+
 export function getLocalNotes(): Note[] {
-  return getStorageItem<Note[]>('notes', []);
+  const isInitialized = getStorageItem<boolean>(NOTES_INITIALIZED_KEY, false);
+  const notes = getStorageItem<Note[]>('notes', []);
+
+  if (!isInitialized) {
+    const initialNotes = (notes && notes.length > 0)
+      ? [
+          ...notes.map(n => ({
+            ...n,
+            stage: n.stage || (n.action_item === 'Completed' ? 'Converted' : n.action_item === 'Pending' ? 'To Be Follow Up' : 'Reached Out')
+          })),
+          ...DEFAULT_NOTES.filter(dn => !notes.some(n => String(n.id) === String(dn.id)))
+        ]
+      : DEFAULT_NOTES;
+
+    setStorageItem('notes', initialNotes);
+    setStorageItem(NOTES_INITIALIZED_KEY, true);
+    return initialNotes;
+  }
+
+  return (notes || []).map(n => ({
+    ...n,
+    stage: n.stage || (n.action_item === 'Completed' ? 'Converted' : n.action_item === 'Pending' ? 'To Be Follow Up' : 'Reached Out')
+  }));
 }
 
 export function saveLocalNote(note: Omit<Note, 'id' | 'timestamp'>): Note {
   const notes = getLocalNotes();
+  const defaultStage = note.stage || note.action_item || 'Reached Out';
   const newNote: Note = {
     ...note,
-    id: 'note-' + Math.random().toString(36).substr(2, 9),
+    stage: defaultStage,
+    action_item: defaultStage,
+    id: 'note-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6),
     timestamp: new Date().toISOString()
   };
-  notes.unshift(newNote); // Add to beginning
-  setStorageItem('notes', notes);
+  const updatedNotes = [newNote, ...notes];
+  setStorageItem('notes', updatedNotes);
+  setStorageItem(NOTES_INITIALIZED_KEY, true);
   return newNote;
 }
 
 export function updateLocalNote(id: string, updates: Partial<Note>): Note {
   const notes = getLocalNotes();
-  const index = notes.findIndex(n => n.id === id);
+  const index = notes.findIndex(n => String(n.id) === String(id));
   if (index === -1) {
-    throw new Error(`Note not found with ID: ${id}`);
+    console.warn(`Note not found with ID: ${id}`);
+    return { id, ...updates } as Note;
   }
 
   const current = notes[index];
   const updated: Note = {
     ...current,
     ...updates,
-    // Keep original timestamp
+    stage: updates.stage || updates.action_item || current.stage || 'Reached Out',
+    action_item: updates.action_item || updates.stage || current.action_item || 'Reached Out'
   };
 
   notes[index] = updated;
@@ -507,9 +680,10 @@ export function updateLocalNote(id: string, updates: Partial<Note>): Note {
 }
 
 export function deleteLocalNote(id: string): void {
-  const notes = getLocalNotes();
-  const filtered = notes.filter(n => n.id !== id);
+  const notes = getStorageItem<Note[]>('notes', []);
+  const filtered = notes.filter(n => String(n.id) !== String(id));
   setStorageItem('notes', filtered);
+  setStorageItem(NOTES_INITIALIZED_KEY, true);
 }
 
 // ==========================================
@@ -570,9 +744,13 @@ export function saveLocalEmployee(employee: Omit<Employee, 'id'>): Employee {
     cleanEmail.startsWith('admin@') ||
     cleanUsername === 'admin' ||
     cleanName === 'admin' ||
-    cleanName === 'administrator'
+    cleanName === 'administrator' ||
+    cleanEmail === 'sales' ||
+    cleanEmail === 'sales@globalminds.com' ||
+    cleanUsername === 'sales' ||
+    cleanName === 'sales'
   ) {
-    throw new Error('Admin account cannot be created. Administrator uses standard pre-configured credentials only.');
+    throw new Error('Admin or Sales accounts cannot be created here. They use standard pre-configured credentials.');
   }
 
   const employees = getLocalEmployees();

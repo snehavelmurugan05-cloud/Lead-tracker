@@ -1,12 +1,45 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Clock, BookOpen, Calendar, Edit2, Trash2, X, Check, Mic, ChevronDown, CheckCircle2, ListTodo } from 'lucide-react';
+import { Send, Clock, BookOpen, Calendar, Edit2, Trash2, X, Check, Mic, ChevronDown, CheckCircle2, ListTodo, Layers, AlertCircle, ArrowUpRight } from 'lucide-react';
 import { isSupabaseConfigured, supabase } from '../lib/supabaseClient';
-import { getLocalNotes, saveLocalNote, updateLocalNote, deleteLocalNote, type Note } from '../lib/localDatabase';
+import { getLocalNotes, saveLocalNote, updateLocalNote, deleteLocalNote, type Note, type NoteStage } from '../lib/localDatabase';
+
+export const NOTE_STAGES: NoteStage[] = [
+  'Reached Out',
+  'Pipeline',
+  'Converted',
+  'To Be Follow Up',
+  'Delivery Due'
+];
+
+export const STAGE_THEME: Record<string, { bg: string; color: string; border: string }> = {
+  'Reached Out': { bg: 'rgba(2, 132, 199, 0.12)', color: '#0284c7', border: 'rgba(2, 132, 199, 0.35)' },
+  'Pipeline': { bg: 'rgba(71, 121, 135, 0.15)', color: '#477987', border: 'rgba(71, 121, 135, 0.35)' },
+  'Converted': { bg: 'rgba(27, 163, 124, 0.15)', color: '#1ba37c', border: 'rgba(27, 163, 124, 0.35)' },
+  'To Be Follow Up': { bg: 'rgba(217, 119, 6, 0.15)', color: '#d97706', border: 'rgba(217, 119, 6, 0.35)' },
+  'Delivery Due': { bg: 'rgba(234, 88, 12, 0.15)', color: '#ea580c', border: 'rgba(234, 88, 12, 0.35)' }
+};
+
+export const resolveNoteStage = (n: Note): NoteStage => {
+  if (n.stage && NOTE_STAGES.includes(n.stage as NoteStage)) {
+    return n.stage as NoteStage;
+  }
+  const action = (n.action_item || '').toLowerCase().trim();
+  if (action === 'completed') return 'Converted';
+  if (action === 'pending') return 'To Be Follow Up';
+  if (action === 'reached out') return 'Reached Out';
+  if (action === 'pipeline') return 'Pipeline';
+  if (action === 'converted') return 'Converted';
+  if (action === 'to be follow up') return 'To Be Follow Up';
+  if (action === 'delivery due') return 'Delivery Due';
+  return 'Reached Out';
+};
 
 const Notes: React.FC = () => {
   const [notes, setNotes] = useState<Note[]>([]);
   const [currentNote, setCurrentNote] = useState('');
   const [reminderDate, setReminderDate] = useState('');
+  const [selectedStage, setSelectedStage] = useState<NoteStage>('Reached Out');
+  const [stageFilter, setStageFilter] = useState<'All' | NoteStage>('All');
   const [isLoading, setIsLoading] = useState(true);
   const [isListening, setIsListening] = useState(false);
   const [shouldAutoSave, setShouldAutoSave] = useState(false);
@@ -81,8 +114,9 @@ const Notes: React.FC = () => {
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
   const [editReminderDate, setEditReminderDate] = useState('');
+  const [editStage, setEditStage] = useState<NoteStage>('Reached Out');
 
-  // Action Items dropdown state
+  // Stage dropdown state
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -101,39 +135,27 @@ const Notes: React.FC = () => {
     };
   }, [openDropdownId]);
 
-  const handleActionItemChange = async (note: Note, newStatus: 'Pending' | 'Completed') => {
-    const isCompleted = newStatus === 'Completed';
+  const handleStageChange = async (note: Note, newStage: NoteStage) => {
+    const isCompleted = newStage === 'Converted';
     const updates = {
-      is_completed: isCompleted,
-      action_item: newStatus
+      stage: newStage,
+      action_item: newStage,
+      is_completed: isCompleted
     };
 
-    setNotes(prev => prev.map(n => n.id === note.id ? { ...n, ...updates } : n));
+    updateLocalNote(note.id, updates);
+    setNotes(prev => prev.map(n => String(n.id) === String(note.id) ? { ...n, ...updates } : n));
     setOpenDropdownId(null);
 
     if (isSupabaseConfigured() && supabase) {
       try {
-        const { error } = await supabase
+        await supabase
           .from('notes')
-          .update({ is_completed: isCompleted, action_item: newStatus })
+          .update({ is_completed: isCompleted, action_item: newStage, stage: newStage })
           .eq('id', note.id);
-        
-        if (error) {
-          if (error.message?.includes('action_item') || error.code === 'PGRST204') {
-            await supabase
-              .from('notes')
-              .update({ is_completed: isCompleted })
-              .eq('id', note.id);
-          }
-          updateLocalNote(note.id, updates);
-        } else {
-          updateLocalNote(note.id, updates);
-        }
       } catch (err) {
-        updateLocalNote(note.id, updates);
+        // Silently fall back to local storage
       }
-    } else {
-      updateLocalNote(note.id, updates);
     }
   };
 
@@ -171,7 +193,10 @@ const Notes: React.FC = () => {
     
     const newNoteData = {
       content: currentNote,
-      reminderDate: reminderDate || undefined
+      reminderDate: reminderDate || undefined,
+      stage: selectedStage,
+      action_item: selectedStage,
+      is_completed: selectedStage === 'Converted'
     };
     
     if (isSupabaseConfigured() && supabase) {
@@ -182,7 +207,10 @@ const Notes: React.FC = () => {
              { 
                content: currentNote, 
                reminderDate: reminderDate || null,
-               timestamp: new Date().toISOString()
+               timestamp: new Date().toISOString(),
+               stage: selectedStage,
+               action_item: selectedStage,
+               is_completed: selectedStage === 'Converted'
              }
           ])
           .select();
@@ -206,82 +234,87 @@ const Notes: React.FC = () => {
     
     setCurrentNote('');
     setReminderDate('');
+    setSelectedStage('Reached Out');
   };
 
   const startEditing = (note: Note) => {
     setEditingNoteId(note.id);
     setEditContent(note.content);
     setEditReminderDate(note.reminderDate || '');
+    setEditStage((note.stage as NoteStage) || (note.action_item as NoteStage) || 'Reached Out');
   };
 
   const cancelEditing = () => {
     setEditingNoteId(null);
     setEditContent('');
     setEditReminderDate('');
+    setEditStage('Reached Out');
   };
 
   const handleSaveEdit = async () => {
     if (!editingNoteId || !editContent.trim()) return;
     
     const updates = {
-      content: editContent,
-      reminderDate: editReminderDate || undefined
+      content: editContent.trim(),
+      reminderDate: editReminderDate || undefined,
+      stage: editStage,
+      action_item: editStage,
+      is_completed: editStage === 'Converted'
     };
+
+    updateLocalNote(editingNoteId, updates);
+    setNotes(prev => prev.map(n => String(n.id) === String(editingNoteId) ? { ...n, ...updates } : n));
 
     if (isSupabaseConfigured() && supabase) {
       try {
-        const { error } = await supabase
+        await supabase
           .from('notes')
-          .update({ content: updates.content, reminderDate: updates.reminderDate || null })
+          .update({
+            content: updates.content,
+            reminderDate: updates.reminderDate || null,
+            stage: editStage,
+            action_item: editStage,
+            is_completed: updates.is_completed
+          })
           .eq('id', editingNoteId);
-          
-        if (!error) {
-          setNotes(notes.map(n => n.id === editingNoteId ? { ...n, ...updates } : n));
-        } else {
-          console.error("Error updating in Supabase:", error);
-          updateLocalNote(editingNoteId, updates);
-          setNotes(notes.map(n => n.id === editingNoteId ? { ...n, ...updates } : n));
-        }
       } catch (err) {
-        updateLocalNote(editingNoteId, updates);
-        setNotes(notes.map(n => n.id === editingNoteId ? { ...n, ...updates } : n));
+        // Silently fall back to local storage
       }
-    } else {
-      updateLocalNote(editingNoteId, updates);
-      setNotes(notes.map(n => n.id === editingNoteId ? { ...n, ...updates } : n));
     }
     cancelEditing();
   };
 
   const handleDeleteNote = async (id: string) => {
-    if (!window.confirm("Are you sure you want to delete this note?")) return;
-    
+    deleteLocalNote(id);
+    setNotes(prev => prev.filter(n => String(n.id) !== String(id)));
+
     if (isSupabaseConfigured() && supabase) {
       try {
-        const { error } = await supabase
+        await supabase
           .from('notes')
           .delete()
           .eq('id', id);
-          
-        if (!error) {
-          setNotes(notes.filter(n => n.id !== id));
-        } else {
-          console.error("Error deleting from Supabase:", error);
-          deleteLocalNote(id);
-          setNotes(notes.filter(n => n.id !== id));
-        }
       } catch (err) {
-        deleteLocalNote(id);
-        setNotes(notes.filter(n => n.id !== id));
+        // Silently fall back to local storage
       }
-    } else {
-      deleteLocalNote(id);
-      setNotes(notes.filter(n => n.id !== id));
     }
   };
 
-  const totalPages = Math.ceil(notes.length / rowsPerPage) || 1;
-  const paginatedNotes = notes.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+  const stageCounts = {
+    'Reached Out': notes.filter(n => resolveNoteStage(n) === 'Reached Out').length,
+    'Pipeline': notes.filter(n => resolveNoteStage(n) === 'Pipeline').length,
+    'Converted': notes.filter(n => resolveNoteStage(n) === 'Converted').length,
+    'To Be Follow Up': notes.filter(n => resolveNoteStage(n) === 'To Be Follow Up').length,
+    'Delivery Due': notes.filter(n => resolveNoteStage(n) === 'Delivery Due').length
+  };
+
+  const filteredNotes = notes.filter(n => {
+    if (stageFilter === 'All') return true;
+    return resolveNoteStage(n) === stageFilter;
+  });
+
+  const totalPages = Math.ceil(filteredNotes.length / rowsPerPage) || 1;
+  const paginatedNotes = filteredNotes.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', animation: 'fade-in 0.4s ease-out' }}>
@@ -352,6 +385,30 @@ const Notes: React.FC = () => {
               alignItems: 'center',
               gap: '12px'
             }}>
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <select 
+                  value={selectedStage}
+                  onChange={(e) => setSelectedStage(e.target.value as NoteStage)}
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid hsl(var(--card-border))',
+                    background: 'hsl(var(--card))',
+                    color: 'hsl(var(--foreground))',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    outline: 'none',
+                    cursor: 'pointer',
+                    fontFamily: 'inherit'
+                  }}
+                  title="Select Pipeline Stage"
+                >
+                  {NOTE_STAGES.map(stg => (
+                    <option key={stg} value={stg}>{stg}</option>
+                  ))}
+                </select>
+              </div>
+
               <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }} title="Set a reminder date">
                 <input 
                   type="date"
@@ -421,11 +478,49 @@ const Notes: React.FC = () => {
 
       {/* Saved Notes Section */}
       <div className="glass-card" style={{ padding: '0' }}>
-        <div style={{ padding: '24px', borderBottom: '1px solid hsl(var(--card-border))' }}>
-          <h3 style={{ fontSize: '1.1rem', fontWeight: '700', color: 'hsl(var(--foreground))', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ padding: '20px 24px', borderBottom: '1px solid hsl(var(--card-border))', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+          <h3 style={{ fontSize: '1.1rem', fontWeight: '700', color: 'hsl(var(--foreground))', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
             <Clock size={18} style={{ color: 'hsl(var(--primary))' }} />
-            Recent Notes
+            Recent Notes ({filteredNotes.length})
           </h3>
+
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => { setStageFilter('All'); setCurrentPage(1); }}
+              className="btn"
+              style={{
+                padding: '5px 12px',
+                borderRadius: '20px',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                backgroundColor: stageFilter === 'All' ? '#1f4854' : 'hsl(var(--card))',
+                color: stageFilter === 'All' ? '#ffffff' : 'hsl(var(--foreground))',
+                border: '1px solid hsl(var(--card-border))'
+              }}
+            >
+              All ({notes.length})
+            </button>
+            {NOTE_STAGES.map(stg => (
+              <button
+                key={stg}
+                onClick={() => { setStageFilter(stg); setCurrentPage(1); }}
+                className="btn"
+                style={{
+                  padding: '5px 12px',
+                  borderRadius: '20px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  backgroundColor: stageFilter === stg ? STAGE_THEME[stg]?.color : 'hsl(var(--card))',
+                  color: stageFilter === stg ? '#ffffff' : 'hsl(var(--foreground))',
+                  border: `1px solid ${stageFilter === stg ? STAGE_THEME[stg]?.color : 'hsl(var(--card-border))'}`
+                }}
+              >
+                {stg} ({stageCounts[stg]})
+              </button>
+            ))}
+          </div>
         </div>
         
         <div style={{ padding: '24px' }}>
@@ -437,7 +532,7 @@ const Notes: React.FC = () => {
               borderRadius: '12px',
               border: '2px dashed hsl(var(--card-border))',
               color: 'hsl(var(--muted-foreground))',
-              display: 'flex',
+              display: 'flex', 
               flexDirection: 'column',
               alignItems: 'center',
               gap: '12px'
@@ -468,7 +563,7 @@ const Notes: React.FC = () => {
                     <th style={{ width: '160px' }}>Created At</th>
                     <th style={{ width: '130px' }}>Reminder</th>
                     <th style={{ width: '320px' }}>Note Content</th>
-                    <th style={{ width: '140px' }}>Action Item</th>
+                    <th style={{ width: '160px' }}>Pipeline Stage</th>
                     <th style={{ textAlign: 'right' }}>Actions</th>
                   </tr>
                 </thead>
@@ -507,10 +602,17 @@ const Notes: React.FC = () => {
                               style={{ minHeight: '80px', padding: '10px', fontSize: '13px', width: '100%' }}
                             />
                           </td>
-                          <td style={{ verticalAlign: 'top', width: '140px' }}>
-                            <span style={{ fontSize: '12px', color: 'hsl(var(--muted-foreground))' }}>
-                              {note.action_item || (note.is_completed ? 'Completed' : 'Pending')}
-                            </span>
+                          <td style={{ verticalAlign: 'top', width: '160px' }}>
+                            <select
+                              value={editStage}
+                              onChange={(e) => setEditStage(e.target.value as NoteStage)}
+                              className="form-select"
+                              style={{ padding: '6px 8px', fontSize: '12px', width: '100%', borderRadius: '6px' }}
+                            >
+                              {NOTE_STAGES.map(stg => (
+                                <option key={stg} value={stg}>{stg}</option>
+                              ))}
+                            </select>
                           </td>
                           <td style={{ verticalAlign: 'top', textAlign: 'right' }}>
                             <div style={{ display: 'flex', gap: '6px', justifyItems: 'flex-end', justifyContent: 'flex-end' }}>
@@ -567,11 +669,12 @@ const Notes: React.FC = () => {
                             {note.content}
                           </td>
 
-                          {/* Action Item Column next to Note Content */}
-                          <td style={{ verticalAlign: 'top', width: '140px' }}>
+                          {/* Pipeline Stage Column */}
+                          <td style={{ verticalAlign: 'top', width: '160px' }}>
                             {(() => {
-                              const currentStatus = note.action_item || (note.is_completed ? 'Completed' : null);
+                              const currentStage = resolveNoteStage(note);
                               const isOpen = openDropdownId === note.id;
+                              const theme = STAGE_THEME[currentStage] || STAGE_THEME['Reached Out'];
 
                               return (
                                 <div className="action-item-dropdown-container" style={{ position: 'relative', display: 'inline-block' }}>
@@ -591,37 +694,15 @@ const Notes: React.FC = () => {
                                       fontSize: '12px',
                                       fontWeight: 600,
                                       cursor: 'pointer',
-                                      border: '1px solid',
+                                      border: `1px solid ${theme.border}`,
+                                      backgroundColor: theme.bg,
+                                      color: theme.color,
                                       transition: 'all 0.15s ease',
                                       outline: 'none',
-                                      whiteSpace: 'nowrap',
-                                      ...(currentStatus === 'Completed'
-                                        ? {
-                                            backgroundColor: 'hsl(var(--success) / 0.14)',
-                                            borderColor: 'hsl(var(--success) / 0.35)',
-                                            color: 'hsl(var(--success))'
-                                          }
-                                        : currentStatus === 'Pending'
-                                        ? {
-                                            backgroundColor: 'hsl(var(--warning) / 0.15)',
-                                            borderColor: 'hsl(var(--warning) / 0.35)',
-                                            color: '#d97706'
-                                          }
-                                        : {
-                                            backgroundColor: 'hsl(var(--primary) / 0.1)',
-                                            borderColor: 'hsl(var(--primary) / 0.25)',
-                                            color: 'hsl(var(--primary))'
-                                          })
+                                      whiteSpace: 'nowrap'
                                     }}
                                   >
-                                    {currentStatus === 'Completed' ? (
-                                      <CheckCircle2 size={13} />
-                                    ) : currentStatus === 'Pending' ? (
-                                      <Clock size={13} />
-                                    ) : (
-                                      <ListTodo size={13} />
-                                    )}
-                                    <span>{currentStatus || 'Action Item'}</span>
+                                    <span>{currentStage}</span>
                                     <ChevronDown size={12} style={{ opacity: 0.7 }} />
                                   </button>
 
@@ -632,7 +713,7 @@ const Notes: React.FC = () => {
                                         top: 'calc(100% + 4px)',
                                         left: 0,
                                         zIndex: 100,
-                                        minWidth: '145px',
+                                        minWidth: '160px',
                                         padding: '6px',
                                         borderRadius: '10px',
                                         boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.25), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
@@ -644,71 +725,36 @@ const Notes: React.FC = () => {
                                       }}
                                       onClick={(e) => e.stopPropagation()}
                                     >
-                                      <button
-                                        type="button"
-                                        onClick={() => handleActionItemChange(note, 'Pending')}
-                                        style={{
-                                          display: 'flex',
-                                          alignItems: 'center',
-                                          justifyContent: 'space-between',
-                                          width: '100%',
-                                          padding: '8px 10px',
-                                          borderRadius: '6px',
-                                          border: 'none',
-                                          background: currentStatus === 'Pending' ? 'hsl(var(--warning) / 0.15)' : 'transparent',
-                                          color: currentStatus === 'Pending' ? '#d97706' : 'hsl(var(--foreground))',
-                                          fontSize: '12px',
-                                          fontWeight: 600,
-                                          cursor: 'pointer',
-                                          textAlign: 'left',
-                                          transition: 'background-color 0.15s ease'
-                                        }}
-                                        onMouseEnter={(e) => {
-                                          if (currentStatus !== 'Pending') e.currentTarget.style.backgroundColor = 'hsl(var(--card-border) / 0.5)';
-                                        }}
-                                        onMouseLeave={(e) => {
-                                          if (currentStatus !== 'Pending') e.currentTarget.style.backgroundColor = 'transparent';
-                                        }}
-                                      >
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                          <Clock size={13} style={{ color: '#d97706' }} />
-                                          <span>Pending</span>
-                                        </span>
-                                        {currentStatus === 'Pending' && <Check size={13} style={{ color: '#d97706' }} />}
-                                      </button>
-
-                                      <button
-                                        type="button"
-                                        onClick={() => handleActionItemChange(note, 'Completed')}
-                                        style={{
-                                          display: 'flex',
-                                          alignItems: 'center',
-                                          justifyContent: 'space-between',
-                                          width: '100%',
-                                          padding: '8px 10px',
-                                          borderRadius: '6px',
-                                          border: 'none',
-                                          background: currentStatus === 'Completed' ? 'hsl(var(--success) / 0.15)' : 'transparent',
-                                          color: currentStatus === 'Completed' ? 'hsl(var(--success))' : 'hsl(var(--foreground))',
-                                          fontSize: '12px',
-                                          fontWeight: 600,
-                                          cursor: 'pointer',
-                                          textAlign: 'left',
-                                          transition: 'background-color 0.15s ease'
-                                        }}
-                                        onMouseEnter={(e) => {
-                                          if (currentStatus !== 'Completed') e.currentTarget.style.backgroundColor = 'hsl(var(--card-border) / 0.5)';
-                                        }}
-                                        onMouseLeave={(e) => {
-                                          if (currentStatus !== 'Completed') e.currentTarget.style.backgroundColor = 'transparent';
-                                        }}
-                                      >
-                                        <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                          <CheckCircle2 size={13} style={{ color: 'hsl(var(--success))' }} />
-                                          <span>Completed</span>
-                                        </span>
-                                        {currentStatus === 'Completed' && <Check size={13} style={{ color: 'hsl(var(--success))' }} />}
-                                      </button>
+                                      {NOTE_STAGES.map(stg => {
+                                        const isSelected = currentStage === stg;
+                                        const stgTheme = STAGE_THEME[stg] || STAGE_THEME['Reached Out'];
+                                        return (
+                                          <button
+                                            key={stg}
+                                            type="button"
+                                            onClick={() => handleStageChange(note, stg)}
+                                            style={{
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              justifyContent: 'space-between',
+                                              width: '100%',
+                                              padding: '7px 10px',
+                                              borderRadius: '6px',
+                                              border: 'none',
+                                              background: isSelected ? stgTheme.bg : 'transparent',
+                                              color: isSelected ? stgTheme.color : 'hsl(var(--foreground))',
+                                              fontSize: '12px',
+                                              fontWeight: 600,
+                                              cursor: 'pointer',
+                                              textAlign: 'left',
+                                              transition: 'background-color 0.15s ease'
+                                            }}
+                                          >
+                                            <span>{stg}</span>
+                                            {isSelected && <Check size={13} style={{ color: stgTheme.color }} />}
+                                          </button>
+                                        );
+                                      })}
                                     </div>
                                   )}
                                 </div>

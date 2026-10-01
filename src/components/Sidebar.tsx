@@ -11,7 +11,8 @@ import {
   ClipboardList,
   FileText,
   Settings,
-  Power
+  Power,
+  Zap
 } from 'lucide-react';
 import { type UserSession } from '../lib/localDatabase';
 import globalMindsLogo from '../assets/global_minds_logo.jpg';
@@ -39,6 +40,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onLogout
 }) => {
   const isEmployee = currentUser?.role === 'employee';
+  const isSales = currentUser?.role === 'sales';
   const totalPending = pendingCount + pendingNotesCount;
 
   // Role-Specific Navigation Menu Items
@@ -46,6 +48,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
     ? [
         { id: 'employee-tasks', label: 'My tasks', icon: ClipboardList, badge: employeePendingCount },
         { id: 'daily-reports', label: 'Daily report', icon: FileText }
+      ]
+    : isSales
+    ? [
+        { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+        { id: 'notes', label: 'Recent notes', icon: StickyNote }
       ]
     : [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -60,8 +67,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
         { id: 'settings', label: 'Settings', icon: Settings }
       ];
 
-  const profileName = isEmployee ? currentUser.name : 'Admin';
-  const profileRole = isEmployee ? (currentUser.role_title || 'Team Member · Global Minds') : 'Lead desk · Global Minds';
+  const profileName = isEmployee
+    ? currentUser.name
+    : isSales
+    ? (currentUser?.name || 'Sales Desk')
+    : 'Admin';
+  const profileRole = isEmployee
+    ? (currentUser.role_title || 'Team Member · Global Minds')
+    : isSales
+    ? (currentUser?.role_title || 'Sales & Counseling Specialist')
+    : 'Lead desk · Global Minds';
   const avatarLetter = profileName.charAt(0).toUpperCase();
 
   return (

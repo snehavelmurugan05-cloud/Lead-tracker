@@ -57,7 +57,55 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
       const isAdminUser = trimmedUser === 'admin' || trimmedUser === 'admin@globalminds.com';
       const isValidAdminPass = trimmedPass === 'admin' || trimmedPass === 'admin123' || trimmedPass === 'password' || trimmedPass === 'Admin@123';
 
-      if (loginType === 'admin' && !isAdminUser) {
+      // 1b. Sales Credentials Check (in Admin portal)
+      const isSalesUser = trimmedUser === 'sales' || trimmedUser === 'sales@globalminds.com';
+      const isValidSalesPass = trimmedPass === 'sales' || trimmedPass === 'sales123' || trimmedPass === 'Sales@123';
+
+      if (loginType === 'admin') {
+        // Sales authentication
+        if (isSalesUser) {
+          if (isValidSalesPass) {
+            setIsLoading(false);
+            const salesSession: UserSession = {
+              role: 'sales',
+              id: 'sales-1',
+              name: 'Sales Desk',
+              username: 'sales',
+              email: 'sales@globalminds.com',
+              role_title: 'Sales & Counseling Desk · Global Minds'
+            };
+            setCurrentUserSession(salesSession);
+            onLoginSuccess(salesSession);
+            return;
+          } else {
+            setIsLoading(false);
+            setErrorMsg('Invalid sales credentials. Please verify your password.');
+            return;
+          }
+        }
+
+        // Admin authentication
+        if (isAdminUser) {
+          if (isValidAdminPass) {
+            setIsLoading(false);
+            const adminSession: UserSession = {
+              role: 'admin',
+              id: 'admin',
+              name: 'Administrator',
+              username: 'admin',
+              email: 'admin@globalminds.com',
+              role_title: 'System Admin · Global Minds'
+            };
+            setCurrentUserSession(adminSession);
+            onLoginSuccess(adminSession);
+            return;
+          } else {
+            setIsLoading(false);
+            setErrorMsg('Invalid admin credentials. Please verify your standard admin password.');
+            return;
+          }
+        }
+
         // Check if user accidentally entered an employee email under Admin tab
         const potentialEmp = await findEmployeeAccount(trimmedUser);
         if (potentialEmp) {
@@ -79,30 +127,26 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             return;
           }
         }
+
         setIsLoading(false);
-        setErrorMsg('Invalid admin credentials. Administrator has standard credentials only. (Switch to Employee Portal to log in with work email)');
+        setErrorMsg('Invalid credentials. Standard admin (admin) or sales (sales) credentials required.');
         return;
       }
 
-      if (isAdminUser) {
-        if (isValidAdminPass) {
-          setIsLoading(false);
-          const adminSession: UserSession = {
-            role: 'admin',
-            id: 'admin',
-            name: 'Administrator',
-            username: 'admin',
-            email: 'admin@globalminds.com',
-            role_title: 'System Admin · Global Minds'
-          };
-          setCurrentUserSession(adminSession);
-          onLoginSuccess(adminSession);
-          return;
-        } else {
-          setIsLoading(false);
-          setErrorMsg('Invalid admin credentials. Please verify your standard admin password.');
-          return;
-        }
+      // Check sales user if entered under employee portal tab
+      if (isSalesUser && isValidSalesPass) {
+        setIsLoading(false);
+        const salesSession: UserSession = {
+          role: 'sales',
+          id: 'sales-1',
+          name: 'Sales Desk',
+          username: 'sales',
+          email: 'sales@globalminds.com',
+          role_title: 'Sales & Counseling Desk · Global Minds'
+        };
+        setCurrentUserSession(salesSession);
+        onLoginSuccess(salesSession);
+        return;
       }
 
       // 2. Employee Credentials Check (checks Supabase employees table first, then local cache)
@@ -149,11 +193,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
       }
 
       setIsLoading(false);
-      if (loginType === 'admin') {
-        setErrorMsg('Invalid admin credentials. Administrator has standard fixed credentials only.');
-      } else {
-        setErrorMsg(`No account found matching "${username}". Please verify your email or create an account below.`);
-      }
+      setErrorMsg(`No account found matching "${username}". Please verify your email or create an account below.`);
     } catch (err: any) {
       setIsLoading(false);
       setErrorMsg(err.message || 'An error occurred during sign in. Please try again.');
@@ -171,9 +211,9 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
     const trimmedPass = regPassword.trim();
     const trimmedConfirm = regConfirmPassword.trim();
 
-    // Prevent any attempt to create an account for an admin
+    // Prevent any attempt to create an account for an admin or sales
     const trimmedNameLower = trimmedName.toLowerCase();
-    const isAttemptingAdmin =
+    const isAttemptingAdminOrSales =
       trimmedEmail === 'admin' ||
       trimmedEmail === 'admin@globalminds.com' ||
       trimmedEmail.startsWith('admin@') ||
@@ -181,10 +221,15 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
       trimmedNameLower === 'admin' ||
       trimmedNameLower === 'administrator' ||
       trimmedNameLower.startsWith('admin ') ||
-      trimmedNameLower.endsWith(' admin');
+      trimmedNameLower.endsWith(' admin') ||
+      trimmedEmail === 'sales' ||
+      trimmedEmail === 'sales@globalminds.com' ||
+      trimmedEmail.startsWith('sales@') ||
+      trimmedEmail.split('@')[0] === 'sales' ||
+      trimmedNameLower === 'sales';
 
-    if (isAttemptingAdmin) {
-      setRegErrorMsg('Cannot create account for an Admin. Administrator has standard credentials only. New account creation is prohibited.');
+    if (isAttemptingAdminOrSales) {
+      setRegErrorMsg('Cannot create account for Admin or Sales. Standard credentials are pre-configured.');
       return;
     }
 
@@ -325,11 +370,11 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 {/* Email / Username Input */}
                 <div className="field-group">
                   <label className="field-label">
-                    {loginType === 'employee' ? 'Your email' : 'Admin Username or Email'}
+                    {loginType === 'employee' ? 'Your email' : 'Admin / Sales Username or Email'}
                   </label>
                   <input
                     type="text"
-                    placeholder={loginType === 'employee' ? 'Enter your email' : 'Enter admin username (admin)'}
+                    placeholder={loginType === 'employee' ? 'Enter your email' : 'Enter username or email (admin / sales)'}
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     required
@@ -343,7 +388,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                   <div className="password-input-wrapper">
                     <input
                       type={showPassword ? 'text' : 'password'}
-                      placeholder={loginType === 'employee' ? 'Enter your password' : 'Enter admin password'}
+                      placeholder={loginType === 'employee' ? 'Enter your password' : 'Enter password'}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required

@@ -41,10 +41,15 @@ export const Header: React.FC<HeaderProps> = ({
           title: 'Daily Work Report',
           subtitle: 'Submit today\'s progress update and review long-term reporting archive.'
         };
+      case 'notes':
+        return {
+          title: 'Recent Notes',
+          subtitle: 'Capture client meeting details and review saved notes.'
+        };
       case 'dashboard':
         return {
-          title: 'Admin Hub',
-          subtitle: 'Every open lead, its reminder status, and the full tracking ledger.'
+          title: currentUser?.role === 'sales' ? 'Sales Dashboard' : 'Admin Hub',
+          subtitle: currentUser?.role === 'sales' ? 'Enquiry status, conversion metrics, and admissions pipeline.' : 'Every open lead, its reminder status, and the full tracking ledger.'
         };
       case 'leads':
         return {
