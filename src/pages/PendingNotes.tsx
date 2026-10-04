@@ -35,19 +35,18 @@ export const PendingNotes: React.FC<PendingNotesProps> = ({
   const fetchPendingData = async () => {
     if (!isDemo && isSupabaseConfigured() && supabase) {
       try {
-        const { data: nts, error } = await supabase.from('notes').select('*');
+        const { data: nts, error } = await supabase.from('notes').select('*').eq('role', 'admin');
         if (!error && nts) {
           setNotes(nts as Note[]);
         } else {
-          console.error("Error fetching pending notes from Supabase:", error);
-          setNotes(getLocalNotes());
+          setNotes(getLocalNotes('admin'));
         }
       } catch (err) {
         console.error('Error loading pending notes:', err);
-        setNotes(getLocalNotes());
+        setNotes(getLocalNotes('admin'));
       }
     } else {
-      setNotes(getLocalNotes());
+      setNotes(getLocalNotes('admin'));
     }
   };
 
@@ -119,7 +118,7 @@ export const PendingNotes: React.FC<PendingNotesProps> = ({
     } else {
       updateLocalNote(note.id, {
         is_completed: true
-      });
+      }, 'admin');
     }
 
     fetchPendingData();

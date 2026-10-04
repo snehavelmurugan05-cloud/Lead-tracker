@@ -55,7 +55,7 @@ export const App: React.FC = () => {
       return hash === 'daily-reports' ? 'daily-reports' : 'employee-tasks';
     }
     if (currentUser?.role === 'sales') {
-      return hash === 'notes' ? 'notes' : 'dashboard';
+      return 'dashboard';
     }
     return hash || 'dashboard';
   });
@@ -66,6 +66,7 @@ export const App: React.FC = () => {
   const [employeePendingCount, setEmployeePendingCount] = useState<number>(0);
   const [leadPrefillName, setLeadPrefillName] = useState<string>('');
   const [reportPrefill, setReportPrefill] = useState<string>('');
+  const [globalSearchQuery, setGlobalSearchQuery] = useState<string>('');
 
   // Decide default mode: if Supabase config is missing, fall back to offline simulation
   const [isDemo, setIsDemo] = useState<boolean>(!isSupabaseConfigured());
@@ -97,11 +98,8 @@ export const App: React.FC = () => {
           window.location.hash = 'employee-tasks';
         }
       } else if (currentUser.role === 'sales') {
-        const validSalesTabs = ['dashboard', 'notes'];
-        if (validSalesTabs.includes(hash)) {
-          setActiveTab(hash);
-        } else {
-          setActiveTab('dashboard');
+        setActiveTab('dashboard');
+        if (hash !== 'dashboard') {
           window.location.hash = 'dashboard';
         }
       } else {
@@ -157,7 +155,9 @@ export const App: React.FC = () => {
       return;
     }
 
-    // Admin pending count
+    const userRole = currentUser?.role === 'sales' ? 'sales' : 'admin';
+
+    // Admin or Sales pending count
     if (!isDemo && isSupabaseConfigured() && supabase) {
       try {
         const { data: enqs } = await supabase.from('enquiries').select('interested, follow_up_done, can_follow_up');
@@ -166,12 +166,12 @@ export const App: React.FC = () => {
           setPendingCount(count);
         }
 
-        const { data: nts, error: notesError } = await supabase.from('notes').select('reminderDate, is_completed');
+        const { data: nts, error: notesError } = await supabase.from('notes').select('reminderDate, is_completed').eq('role', userRole);
         if (!notesError && nts) {
           const nCount = nts.filter(n => n.reminderDate && !n.is_completed).length;
           setPendingNotesCount(nCount);
         } else {
-          const localNts = getLocalNotes();
+          const localNts = getLocalNotes(userRole);
           const nCount = localNts.filter(n => n.reminderDate && !n.is_completed).length;
           setPendingNotesCount(nCount);
         }
@@ -183,7 +183,7 @@ export const App: React.FC = () => {
       const count = enqs.filter(e => e.interested === null || e.follow_up_done === null || e.can_follow_up === null).length;
       setPendingCount(count);
 
-      const nts = getLocalNotes();
+      const nts = getLocalNotes(userRole);
       const nCount = nts.filter(n => n.reminderDate && !n.is_completed).length;
       setPendingNotesCount(nCount);
     }
@@ -218,6 +218,7 @@ export const App: React.FC = () => {
         setActiveTab('dashboard');
         window.location.hash = 'dashboard';
       }
+      setRefreshTrigger(prev => prev + 1);
     } else {
       // Default admin fallback
       const adminSession: UserSession = {
@@ -232,6 +233,7 @@ export const App: React.FC = () => {
       localStorage.setItem('isAuthenticated', 'true');
       setActiveTab('dashboard');
       window.location.hash = 'dashboard';
+      setRefreshTrigger(prev => prev + 1);
     }
   };
 
@@ -241,6 +243,7 @@ export const App: React.FC = () => {
     setCurrentUser(null);
     setActiveTab('dashboard');
     window.location.hash = '';
+    setRefreshTrigger(prev => prev + 1);
   };
 
   const handleNavigateToLead = (prefill?: string) => {
@@ -298,6 +301,8 @@ export const App: React.FC = () => {
             theme={theme}
             toggleTheme={toggleTheme}
             currentUser={currentUser}
+            refreshTrigger={refreshTrigger}
+            onUpdate={handleDatabaseUpdate}
           />
 
           <div style={{ marginTop: '8px' }}>
@@ -349,25 +354,29 @@ export const App: React.FC = () => {
         {/* Main Sales Viewport */}
         <main className="main-content">
           <Header
-            activeTab={activeTab}
+            activeTab="dashboard"
             setActiveTab={setActiveTab}
-            pendingCount={pendingCount}
+            pendingCount={pendingNotesCount}
             theme={theme}
             toggleTheme={toggleTheme}
             currentUser={currentUser}
+            searchQuery={globalSearchQuery}
+            onSearch={setGlobalSearchQuery}
+            onNavigateToLead={handleNavigateToLead}
+            refreshTrigger={refreshTrigger}
+            onUpdate={handleDatabaseUpdate}
           />
 
           <div style={{ marginTop: '8px' }}>
-            {activeTab === 'notes' ? (
-              <Notes />
-            ) : (
-              <Dashboard
-                isDemo={isDemo}
-                refreshTrigger={refreshTrigger}
-                onUpdate={handleDatabaseUpdate}
-                onNavigateToLead={handleNavigateToLead}
-              />
-            )}
+            <Dashboard
+              isDemo={isDemo}
+              refreshTrigger={refreshTrigger}
+              onUpdate={handleDatabaseUpdate}
+              onNavigateToLead={handleNavigateToLead}
+              currentUser={currentUser}
+              onNavigateTab={setActiveTab}
+              searchQuery={globalSearchQuery}
+            />
           </div>
         </main>
       </div>
@@ -386,6 +395,7 @@ export const App: React.FC = () => {
             onNavigateToLead={handleNavigateToLead}
             currentUser={currentUser}
             onNavigateTab={setActiveTab}
+            searchQuery={globalSearchQuery}
           />
         );
       case 'leads':
@@ -452,7 +462,13 @@ export const App: React.FC = () => {
           />
         );
       case 'notes':
-        return <Notes />;
+        return (
+          <Notes
+            currentUser={currentUser}
+            onUpdate={handleDatabaseUpdate}
+            searchQuery={globalSearchQuery}
+          />
+        );
       case 'employees':
         return <Employees isDemo={isDemo} />;
       case 'team-tasks':
@@ -474,6 +490,7 @@ export const App: React.FC = () => {
             onNavigateToLead={handleNavigateToLead}
             currentUser={currentUser}
             onNavigateTab={setActiveTab}
+            searchQuery={globalSearchQuery}
           />
         );
     }
@@ -502,10 +519,15 @@ export const App: React.FC = () => {
         <Header
           activeTab={activeTab}
           setActiveTab={setActiveTab}
-          pendingCount={pendingCount}
+          pendingCount={pendingCount + pendingNotesCount}
           theme={theme}
           toggleTheme={toggleTheme}
           currentUser={currentUser}
+          searchQuery={globalSearchQuery}
+          onSearch={setGlobalSearchQuery}
+          onNavigateToLead={handleNavigateToLead}
+          refreshTrigger={refreshTrigger}
+          onUpdate={handleDatabaseUpdate}
         />
 
         {/* Banner indicating simulation state */}

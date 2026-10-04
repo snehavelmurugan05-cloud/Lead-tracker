@@ -43,7 +43,32 @@ export interface Note {
   is_completed?: boolean;
   action_item?: 'Pending' | 'Completed' | string;
   stage?: NoteStage | string;
+  role?: 'admin' | 'sales' | string;
+  created_by?: string;
 }
+
+export const NOTE_STAGES: NoteStage[] = [
+  'Reached Out',
+  'Pipeline',
+  'Converted',
+  'To Be Follow Up',
+  'Delivery Due'
+];
+
+export const resolveNoteStage = (n: Note): NoteStage => {
+  if (n.stage && NOTE_STAGES.includes(n.stage as NoteStage)) {
+    return n.stage as NoteStage;
+  }
+  const action = (n.action_item || '').toLowerCase().trim();
+  if (action === 'completed') return 'Converted';
+  if (action === 'pending') return 'To Be Follow Up';
+  if (action === 'reached out') return 'Reached Out';
+  if (action === 'pipeline') return 'Pipeline';
+  if (action === 'converted') return 'Converted';
+  if (action === 'to be follow up') return 'To Be Follow Up';
+  if (action === 'delivery due') return 'Delivery Due';
+  return 'Reached Out';
+};
 
 export interface UserSession {
   role: 'admin' | 'employee' | 'sales';
@@ -472,218 +497,382 @@ export function resetLocalDatabase(): void {
   localStorage.removeItem(STORAGE_PREFIX + 'courses');
   localStorage.removeItem(STORAGE_PREFIX + 'enquiries');
   localStorage.removeItem(STORAGE_PREFIX + 'notes');
+  localStorage.removeItem(STORAGE_PREFIX + 'sales_notes');
+  localStorage.removeItem(STORAGE_PREFIX + 'admin_notes_v5');
+  localStorage.removeItem(STORAGE_PREFIX + 'sales_notes_v5');
+  localStorage.removeItem(STORAGE_PREFIX + 'admin_notes_v6');
+  localStorage.removeItem(STORAGE_PREFIX + 'sales_notes_v6');
+  localStorage.removeItem(STORAGE_PREFIX + 'todolist_admin_notes_initialized_v5');
+  localStorage.removeItem(STORAGE_PREFIX + 'todolist_sales_notes_initialized_v5');
+  localStorage.removeItem(STORAGE_PREFIX + 'todolist_admin_notes_initialized_v6');
+  localStorage.removeItem(STORAGE_PREFIX + 'todolist_sales_notes_initialized_v6');
+  localStorage.removeItem(STORAGE_PREFIX + 'todolist_notes_initialized_v2');
+  localStorage.removeItem(STORAGE_PREFIX + 'todolist_sales_notes_initialized_v2');
 }
 
+// ----------------------------------------------------
+// DEFAULT ADMIN NOTES (Strictly administrative & operational records)
+// ----------------------------------------------------
 export const DEFAULT_NOTES: Note[] = [
-  // Reached Out (6)
   {
-    id: 'note-ro-1',
-    content: 'Client requested syllabus for Data Science & AI. Reached out with detailed curriculum syllabus.',
+    id: 'note-admin-1',
+    content: 'Contacted municipal authority regarding annual campus fire safety and emergency compliance audit renewal.',
     timestamp: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
-    stage: 'Reached Out',
-    action_item: 'Reached Out',
+    action_item: 'Pending',
+    role: 'admin',
+    created_by: 'Admin',
     reminderDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     is_completed: false
   },
   {
-    id: 'note-ro-2',
-    content: 'Initial call with Rahul regarding German A1/A2 certification schedule and fee structure.',
+    id: 'note-admin-2',
+    content: 'Sent inquiry to facilities vendor for classroom projector upgrades and air-conditioning maintenance servicing.',
     timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    stage: 'Reached Out',
-    action_item: 'Reached Out',
+    action_item: 'Pending',
+    role: 'admin',
+    created_by: 'Admin',
     reminderDate: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString().split('T')[0],
     is_completed: false
   },
   {
-    id: 'note-ro-3',
-    content: 'Contacted prospective candidate for Full Stack Web Development cohort starting next month.',
+    id: 'note-admin-3',
+    content: 'Requested updated quotation from telecom provider for dedicated leased-line internet bandwidth upgrade.',
     timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
-    stage: 'Reached Out',
-    action_item: 'Reached Out',
-    reminderDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    action_item: 'Pending',
+    role: 'admin',
+    created_by: 'Admin',
     is_completed: false
   },
   {
-    id: 'note-ro-4',
-    content: 'Introduced Machine Learning & AI course roadmap to Bangalore campus student group.',
-    timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
-    stage: 'Reached Out',
-    action_item: 'Reached Out',
-    is_completed: false
-  },
-  {
-    id: 'note-ro-5',
-    content: 'Sent NEET counseling guidance handbook to parent enquiry via WhatsApp and email.',
-    timestamp: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(),
-    stage: 'Reached Out',
-    action_item: 'Reached Out',
-    is_completed: false
-  },
-  {
-    id: 'note-ro-6',
-    content: 'Reached out to JEE Mains coaching aspirant regarding weekend offline test series.',
-    timestamp: new Date(Date.now() - 10 * 60 * 60 * 1000).toISOString(),
-    stage: 'Reached Out',
-    action_item: 'Reached Out',
-    is_completed: false
-  },
-
-  // Pipeline (4)
-  {
-    id: 'note-pipe-1',
-    content: 'Candidate attending counseling evaluation demo on Saturday; discussing 2-part tuition installment.',
+    id: 'note-admin-4',
+    content: 'Reviewing proposal for campus biometric security access system and cloud attendance software integration.',
     timestamp: new Date(Date.now() - 14 * 60 * 60 * 1000).toISOString(),
-    stage: 'Pipeline',
-    action_item: 'Pipeline',
+    action_item: 'Pending',
+    role: 'admin',
+    created_by: 'Admin',
     reminderDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     is_completed: false
   },
   {
-    id: 'note-pipe-2',
-    content: 'Reviewing corporate sponsorship proposal for German Business Language training (12 employees).',
+    id: 'note-admin-5',
+    content: 'Evaluating vendor bids for cafeteria catering service contract and health inspection certification.',
     timestamp: new Date(Date.now() - 18 * 60 * 60 * 1000).toISOString(),
-    stage: 'Pipeline',
-    action_item: 'Pipeline',
-    reminderDate: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString().split('T')[0],
+    action_item: 'Pending',
+    role: 'admin',
+    created_by: 'Admin',
     is_completed: false
   },
   {
-    id: 'note-pipe-3',
-    content: 'Student shortlisting Full Stack React vs Python Data Science; scheduled mentor consultation.',
-    timestamp: new Date(Date.now() - 22 * 60 * 60 * 1000).toISOString(),
-    stage: 'Pipeline',
-    action_item: 'Pipeline',
-    is_completed: false
-  },
-  {
-    id: 'note-pipe-4',
-    content: 'Evaluating educational loan pre-approval for Data Science PG Program with partnering bank.',
-    timestamp: new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString(),
-    stage: 'Pipeline',
-    action_item: 'Pipeline',
-    is_completed: false
-  },
-
-  // Converted (2)
-  {
-    id: 'note-conv-1',
-    content: 'Student enrolled successfully for Data Science & AI batch! First installment payment cleared.',
+    id: 'note-admin-6',
+    content: 'Annual branch commercial property insurance policy successfully renewed and premium transaction finalized.',
     timestamp: new Date(Date.now() - 32 * 60 * 60 * 1000).toISOString(),
-    stage: 'Converted',
-    action_item: 'Converted',
+    action_item: 'Completed',
+    role: 'admin',
+    created_by: 'Admin',
     is_completed: true
   },
   {
-    id: 'note-conv-2',
-    content: 'German B2 intensive course admission finalized. LMS student credentials activated.',
+    id: 'note-admin-7',
+    content: 'Quarterly staff payroll reconciliation and statutory tax withholding compliance documentation approved.',
     timestamp: new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString(),
-    stage: 'Converted',
-    action_item: 'Converted',
+    action_item: 'Completed',
+    role: 'admin',
+    created_by: 'Admin',
     is_completed: true
   },
-
-  // To Be Follow Up (2)
   {
-    id: 'note-fup-1',
-    content: 'Follow-up call requested by client on Monday morning to confirm batch timing availability.',
+    id: 'note-admin-8',
+    content: 'Follow-up with IT infrastructure team on Sunday server maintenance and offsite data backup log verification.',
     timestamp: new Date(Date.now() - 40 * 60 * 60 * 1000).toISOString(),
-    stage: 'To Be Follow Up',
-    action_item: 'To Be Follow Up',
+    action_item: 'Pending',
+    role: 'admin',
+    created_by: 'Admin',
     reminderDate: new Date(Date.now() + 18 * 60 * 60 * 1000).toISOString().split('T')[0],
     is_completed: false
   },
   {
-    id: 'note-fup-2',
-    content: 'Follow up with university campus lead coordinator regarding group admission discount.',
+    id: 'note-admin-9',
+    content: 'Meeting with external legal counsel regarding employee nondisclosure agreements and vendor terms update.',
     timestamp: new Date(Date.now() - 44 * 60 * 60 * 1000).toISOString(),
-    stage: 'To Be Follow Up',
-    action_item: 'To Be Follow Up',
+    action_item: 'Pending',
+    role: 'admin',
+    created_by: 'Admin',
     reminderDate: new Date(Date.now() + 36 * 60 * 60 * 1000).toISOString().split('T')[0],
     is_completed: false
   },
-
-  // Delivery Due (1)
   {
-    id: 'note-del-1',
-    content: 'Course completion certificate and study material kit delivery due for graduating batch.',
+    id: 'note-admin-10',
+    content: 'Quarterly compliance filing documentation delivery due to regional education board office.',
     timestamp: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
-    stage: 'Delivery Due',
-    action_item: 'Delivery Due',
+    action_item: 'Pending',
+    role: 'admin',
+    created_by: 'Admin',
     reminderDate: new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString().split('T')[0],
     is_completed: false
   }
 ];
 
-const NOTES_INITIALIZED_KEY = 'todolist_notes_initialized_v2';
+// ----------------------------------------------------
+// DEFAULT SALES NOTES (Client sales & counseling only - NO course details)
+// ----------------------------------------------------
+export const DEFAULT_SALES_NOTES: Note[] = [
+  // Reached Out (3)
+  {
+    id: 'sales-note-ro-1',
+    content: 'Sales initial outreach: Spoke with prospective client regarding enrollment guidelines and weekend batch availability.',
+    timestamp: new Date(Date.now() - 25 * 60 * 1000).toISOString(),
+    stage: 'Reached Out',
+    action_item: 'Reached Out',
+    role: 'sales',
+    created_by: 'Sales Desk',
+    reminderDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    is_completed: false
+  },
+  {
+    id: 'sales-note-ro-2',
+    content: 'Counseling phone call with client regarding program schedule and flexible installment fee options.',
+    timestamp: new Date(Date.now() - 90 * 60 * 1000).toISOString(),
+    stage: 'Reached Out',
+    action_item: 'Reached Out',
+    role: 'sales',
+    created_by: 'Sales Desk',
+    reminderDate: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString().split('T')[0],
+    is_completed: false
+  },
+  {
+    id: 'sales-note-ro-3',
+    content: 'Contacted inbound prospective applicant. Sent program brochure and career counseling overview via WhatsApp.',
+    timestamp: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+    stage: 'Reached Out',
+    action_item: 'Reached Out',
+    role: 'sales',
+    created_by: 'Sales Desk',
+    is_completed: false
+  },
 
-export function getLocalNotes(): Note[] {
-  const isInitialized = getStorageItem<boolean>(NOTES_INITIALIZED_KEY, false);
-  const notes = getStorageItem<Note[]>('notes', []);
+  // Pipeline (2)
+  {
+    id: 'sales-note-pipe-1',
+    content: 'Client consultation meeting booked for Saturday afternoon. Client evaluating payment installments.',
+    timestamp: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
+    stage: 'Pipeline',
+    action_item: 'Pipeline',
+    role: 'sales',
+    created_by: 'Sales Desk',
+    reminderDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    is_completed: false
+  },
+  {
+    id: 'sales-note-pipe-2',
+    content: 'Corporate team inquiry (8 candidates) for workforce training. Custom training proposal shared.',
+    timestamp: new Date(Date.now() - 16 * 60 * 60 * 1000).toISOString(),
+    stage: 'Pipeline',
+    action_item: 'Pipeline',
+    role: 'sales',
+    created_by: 'Sales Desk',
+    reminderDate: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString().split('T')[0],
+    is_completed: false
+  },
 
+  // Converted (1)
+  {
+    id: 'sales-note-conv-1',
+    content: 'Client enrollment finalized! Registration form received and initial admission fee confirmed.',
+    timestamp: new Date(Date.now() - 28 * 60 * 60 * 1000).toISOString(),
+    stage: 'Converted',
+    action_item: 'Converted',
+    role: 'sales',
+    created_by: 'Sales Desk',
+    is_completed: true
+  },
+
+  // To Be Follow Up (1) - Overdue reminder to demonstrate overdue alert
+  {
+    id: 'sales-note-fup-1',
+    content: 'Candidate requested follow-up call on Monday morning to confirm batch timings with employer.',
+    timestamp: new Date(Date.now() - 34 * 60 * 60 * 1000).toISOString(),
+    stage: 'To Be Follow Up',
+    action_item: 'To Be Follow Up',
+    role: 'sales',
+    created_by: 'Sales Desk',
+    reminderDate: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    is_completed: false
+  },
+
+  // Delivery Due (1) - Due Today reminder to demonstrate today alert
+  {
+    id: 'sales-note-del-1',
+    content: 'Welcome onboarding kit and student portal access credentials dispatch due for new sales enrollee.',
+    timestamp: new Date(Date.now() - 42 * 60 * 60 * 1000).toISOString(),
+    stage: 'Delivery Due',
+    action_item: 'Delivery Due',
+    role: 'sales',
+    created_by: 'Sales Desk',
+    reminderDate: new Date().toISOString().split('T')[0],
+    is_completed: false
+  }
+];
+
+const ADMIN_NOTES_STORAGE_KEY = 'admin_notes_v6';
+const SALES_NOTES_STORAGE_KEY = 'sales_notes_v6';
+const ADMIN_NOTES_INITIALIZED_KEY = 'todolist_admin_notes_initialized_v6';
+const SALES_NOTES_INITIALIZED_KEY = 'todolist_sales_notes_initialized_v6';
+
+export function getLocalNotes(role?: 'admin' | 'sales' | string): Note[] {
+  const currentRole = role || getCurrentUserSession()?.role || 'admin';
+  const isSales = currentRole === 'sales';
+
+  if (isSales) {
+    const isSalesInitialized = getStorageItem<boolean>(SALES_NOTES_INITIALIZED_KEY, false);
+    if (!isSalesInitialized) {
+      setStorageItem(SALES_NOTES_STORAGE_KEY, DEFAULT_SALES_NOTES);
+      setStorageItem(SALES_NOTES_INITIALIZED_KEY, true);
+      return DEFAULT_SALES_NOTES;
+    }
+    const salesNotes = getStorageItem<Note[]>(SALES_NOTES_STORAGE_KEY, DEFAULT_SALES_NOTES);
+    return (salesNotes || [])
+      .filter(n => n.role !== 'admin' && String(n.id).startsWith('sales-note-'))
+      .map(n => ({
+        ...n,
+        role: 'sales' as const,
+        stage: n.stage || (n.action_item === 'Completed' ? 'Converted' : n.action_item === 'Pending' ? 'To Be Follow Up' : 'Reached Out')
+      }));
+  }
+
+  // Admin notes logic - strictly Admin only (NO sales notes or sales stages)
+  const isInitialized = getStorageItem<boolean>(ADMIN_NOTES_INITIALIZED_KEY, false);
   if (!isInitialized) {
-    const initialNotes = (notes && notes.length > 0)
-      ? [
-          ...notes.map(n => ({
-            ...n,
-            stage: n.stage || (n.action_item === 'Completed' ? 'Converted' : n.action_item === 'Pending' ? 'To Be Follow Up' : 'Reached Out')
-          })),
-          ...DEFAULT_NOTES.filter(dn => !notes.some(n => String(n.id) === String(dn.id)))
-        ]
-      : DEFAULT_NOTES;
-
-    setStorageItem('notes', initialNotes);
-    setStorageItem(NOTES_INITIALIZED_KEY, true);
-    return initialNotes;
+    setStorageItem(ADMIN_NOTES_STORAGE_KEY, DEFAULT_NOTES);
+    setStorageItem(ADMIN_NOTES_INITIALIZED_KEY, true);
+    return DEFAULT_NOTES;
   }
-
-  return (notes || []).map(n => ({
-    ...n,
-    stage: n.stage || (n.action_item === 'Completed' ? 'Converted' : n.action_item === 'Pending' ? 'To Be Follow Up' : 'Reached Out')
-  }));
+  const notes = getStorageItem<Note[]>(ADMIN_NOTES_STORAGE_KEY, DEFAULT_NOTES);
+  return (notes || [])
+    .filter(n => n.role !== 'sales' && !String(n.id).startsWith('sales-note-') && n.created_by !== 'Sales Desk')
+    .map(n => {
+      const isCompleted = Boolean(n.is_completed || n.action_item === 'Completed');
+      return {
+        ...n,
+        role: 'admin' as const,
+        created_by: 'Admin',
+        is_completed: isCompleted,
+        action_item: isCompleted ? 'Completed' : 'Pending',
+        stage: undefined
+      };
+    });
 }
 
-export function saveLocalNote(note: Omit<Note, 'id' | 'timestamp'>): Note {
-  const notes = getLocalNotes();
+export function saveLocalNote(note: Omit<Note, 'id' | 'timestamp'>, role?: 'admin' | 'sales' | string): Note {
+  const targetRole = role || note.role || getCurrentUserSession()?.role || 'admin';
+  const isSales = targetRole === 'sales';
   const defaultStage = note.stage || note.action_item || 'Reached Out';
-  const newNote: Note = {
-    ...note,
-    stage: defaultStage,
-    action_item: defaultStage,
-    id: 'note-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6),
-    timestamp: new Date().toISOString()
-  };
-  const updatedNotes = [newNote, ...notes];
-  setStorageItem('notes', updatedNotes);
-  setStorageItem(NOTES_INITIALIZED_KEY, true);
-  return newNote;
+
+  if (isSales) {
+    const newNote: Note = {
+      ...note,
+      role: 'sales',
+      created_by: note.created_by || 'Sales Desk',
+      stage: defaultStage,
+      action_item: defaultStage,
+      is_completed: defaultStage === 'Converted',
+      id: 'sales-note-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6),
+      timestamp: new Date().toISOString()
+    };
+    const salesNotes = getLocalNotes('sales');
+    const updatedSalesNotes = [newNote, ...salesNotes];
+    setStorageItem(SALES_NOTES_STORAGE_KEY, updatedSalesNotes);
+    setStorageItem(SALES_NOTES_INITIALIZED_KEY, true);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('sales-notes-updated'));
+    }
+    return newNote;
+  } else {
+    const isCompleted = Boolean(note.is_completed || note.action_item === 'Completed');
+    const newNote: Note = {
+      ...note,
+      role: 'admin',
+      created_by: 'Admin',
+      stage: undefined,
+      action_item: isCompleted ? 'Completed' : 'Pending',
+      is_completed: isCompleted,
+      id: 'note-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6),
+      timestamp: new Date().toISOString()
+    };
+    const adminNotes = getLocalNotes('admin');
+    const updatedAdminNotes = [newNote, ...adminNotes];
+    setStorageItem(ADMIN_NOTES_STORAGE_KEY, updatedAdminNotes);
+    setStorageItem(ADMIN_NOTES_INITIALIZED_KEY, true);
+    return newNote;
+  }
 }
 
-export function updateLocalNote(id: string, updates: Partial<Note>): Note {
-  const notes = getLocalNotes();
-  const index = notes.findIndex(n => String(n.id) === String(id));
-  if (index === -1) {
-    console.warn(`Note not found with ID: ${id}`);
-    return { id, ...updates } as Note;
+export function updateLocalNote(id: string, updates: Partial<Note>, role?: 'admin' | 'sales' | string): Note {
+  const isSalesId = String(id).startsWith('sales-note-');
+  const targetRole = role || (isSalesId ? 'sales' : (getCurrentUserSession()?.role || 'admin'));
+  const isSales = targetRole === 'sales' || isSalesId;
+
+  if (isSales) {
+    const salesNotes = getLocalNotes('sales');
+    const index = salesNotes.findIndex(n => String(n.id) === String(id));
+    if (index !== -1) {
+      const current = salesNotes[index];
+      const updated: Note = {
+        ...current,
+        ...updates,
+        role: 'sales',
+        stage: updates.stage || updates.action_item || current.stage || 'Reached Out',
+        action_item: updates.action_item || updates.stage || current.action_item || 'Reached Out'
+      };
+      salesNotes[index] = updated;
+      setStorageItem(SALES_NOTES_STORAGE_KEY, salesNotes);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('sales-notes-updated'));
+      }
+      return updated;
+    }
+  } else {
+    const adminNotes = getLocalNotes('admin');
+    const index = adminNotes.findIndex(n => String(n.id) === String(id));
+    if (index !== -1) {
+      const current = adminNotes[index];
+      const isCompleted = updates.is_completed !== undefined 
+        ? updates.is_completed 
+        : (updates.action_item ? updates.action_item === 'Completed' : current.is_completed);
+      const updated: Note = {
+        ...current,
+        ...updates,
+        role: 'admin',
+        created_by: 'Admin',
+        is_completed: isCompleted,
+        action_item: isCompleted ? 'Completed' : 'Pending',
+        stage: undefined
+      };
+      adminNotes[index] = updated;
+      setStorageItem(ADMIN_NOTES_STORAGE_KEY, adminNotes);
+      return updated;
+    }
   }
 
-  const current = notes[index];
-  const updated: Note = {
-    ...current,
-    ...updates,
-    stage: updates.stage || updates.action_item || current.stage || 'Reached Out',
-    action_item: updates.action_item || updates.stage || current.action_item || 'Reached Out'
-  };
-
-  notes[index] = updated;
-  setStorageItem('notes', notes);
-  return updated;
+  console.warn(`Note not found with ID: ${id}`);
+  return { id, ...updates } as Note;
 }
 
-export function deleteLocalNote(id: string): void {
-  const notes = getStorageItem<Note[]>('notes', []);
-  const filtered = notes.filter(n => String(n.id) !== String(id));
-  setStorageItem('notes', filtered);
-  setStorageItem(NOTES_INITIALIZED_KEY, true);
+export function deleteLocalNote(id: string, role?: 'admin' | 'sales' | string): void {
+  const isSalesId = String(id).startsWith('sales-note-');
+  const targetRole = role || (isSalesId ? 'sales' : (getCurrentUserSession()?.role || 'admin'));
+
+  if (targetRole === 'sales' || isSalesId) {
+    const salesNotes = getStorageItem<Note[]>(SALES_NOTES_STORAGE_KEY, []);
+    const filtered = salesNotes.filter(n => String(n.id) !== String(id));
+    setStorageItem(SALES_NOTES_STORAGE_KEY, filtered);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('sales-notes-updated'));
+    }
+  } else {
+    const adminNotes = getStorageItem<Note[]>(ADMIN_NOTES_STORAGE_KEY, []);
+    const filtered = adminNotes.filter(n => String(n.id) !== String(id));
+    setStorageItem(ADMIN_NOTES_STORAGE_KEY, filtered);
+  }
 }
 
 // ==========================================

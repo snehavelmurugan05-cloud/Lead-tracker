@@ -86,6 +86,7 @@ interface DashboardProps {
   onNavigateToLead?: (prefillName?: string) => void;
   currentUser?: UserSession | null;
   onNavigateTab?: (tab: string) => void;
+  searchQuery?: string;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -94,10 +95,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
   onUpdate,
   onNavigateToLead,
   currentUser,
-  onNavigateTab
+  onNavigateTab,
+  searchQuery
 }) => {
   const user = currentUser || getCurrentUserSession();
   const isSales = user?.role === 'sales';
+  const userRole: 'sales' | 'admin' = isSales ? 'sales' : 'admin';
 
   const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
@@ -169,13 +172,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
         const { data: cats } = await supabase.from('categories').select('*');
         const { data: crs } = await supabase.from('courses').select('*');
         const { data: enqs } = await supabase.from('enquiries').select('*').order('created_at', { ascending: false });
-        const { data: nts } = await supabase.from('notes').select('*').order('timestamp', { ascending: false });
+        const { data: nts } = await supabase.from('notes').select('*').eq('role', userRole).order('timestamp', { ascending: false });
 
         if (cats) setCategories(cats);
         if (crs) setCourses(crs);
         if (enqs) setEnquiries(enqs);
         if (nts) setNotes(nts as Note[]);
-        else setNotes(getLocalNotes());
+        else setNotes(getLocalNotes(userRole));
       } catch (err) {
         console.error('Supabase query failed, using local storage:', err);
         loadLocalData();
@@ -188,7 +191,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const loadLocalData = () => {
     setCategories(getLocalCategories());
     setCourses(getLocalCourses());
-    setNotes(getLocalNotes());
+    setNotes(getLocalNotes(userRole));
 
     // Sort enquiries so newest is first
     const enqs = getLocalEnquiries();
@@ -198,7 +201,50 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   useEffect(() => {
     fetchDashboardData();
-  }, [isDemo, refreshTrigger]);
+  }, [isDemo, refreshTrigger, userRole, currentUser]);
+
+  // Synchronize on sales notes mutation
+  useEffect(() => {
+    const handleSalesNotesUpdated = () => {
+      fetchDashboardData();
+    };
+    window.addEventListener('sales-notes-updated', handleSalesNotesUpdated);
+    return () => window.removeEventListener('sales-notes-updated', handleSalesNotesUpdated);
+  }, []);
+
+  // Smooth scroll and flash highlight when navigated from notification popover
+  useEffect(() => {
+    const handleFocusSalesNote = (e: any) => {
+      const targetId = e.detail?.noteId;
+      if (!targetId) return;
+
+      setSelectedNoteStageFilter('All');
+      setNoteSearchQuery('');
+
+      const noteIdx = notes.findIndex(n => String(n.id) === String(targetId));
+      if (noteIdx !== -1) {
+        const targetPage = Math.floor(noteIdx / notesRowsPerPage) + 1;
+        setNotesCurrentPage(targetPage);
+      }
+
+      setTimeout(() => {
+        const row = document.getElementById(`sales-note-row-${targetId}`);
+        if (row) {
+          row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          row.classList.remove('row-highlight-flash');
+          void row.offsetWidth; // trigger reflow
+          row.classList.add('row-highlight-flash');
+          setTimeout(() => row.classList.remove('row-highlight-flash'), 2600);
+        } else {
+          const section = document.getElementById('sales-notes-section');
+          if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 120);
+    };
+
+    window.addEventListener('focus-sales-note', handleFocusSalesNote);
+    return () => window.removeEventListener('focus-sales-note', handleFocusSalesNote);
+  }, [notes, notesRowsPerPage]);
 
   // Simulating the Supabase Cron Job Reminder checker
   const handleTriggerReminders = () => {
@@ -336,7 +382,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
       stage: quickNoteStage,
       action_item: quickNoteStage,
       reminderDate: quickNoteReminder || undefined,
-      is_completed: quickNoteStage === 'Converted'
+      is_completed: quickNoteStage === 'Converted',
+      role: userRole,
+      created_by: isSales ? 'Sales Desk' : 'Admin'
     };
 
     if (!isDemo && isSupabaseConfigured() && supabase) {
@@ -349,28 +397,30 @@ export const Dashboard: React.FC<DashboardProps> = ({
             action_item: newNoteData.action_item,
             reminderDate: newNoteData.reminderDate || null,
             is_completed: newNoteData.is_completed,
+            role: userRole,
+            created_by: newNoteData.created_by,
             timestamp: new Date().toISOString()
           }])
           .select();
         if (!error && data && data.length > 0) {
           setNotes([data[0] as Note, ...notes]);
         } else {
-          const localNote = saveLocalNote(newNoteData);
+          const localNote = saveLocalNote(newNoteData, userRole);
           setNotes([localNote, ...notes]);
         }
       } catch (err) {
-        const localNote = saveLocalNote(newNoteData);
+        const localNote = saveLocalNote(newNoteData, userRole);
         setNotes([localNote, ...notes]);
       }
     } else {
-      const localNote = saveLocalNote(newNoteData);
+      const localNote = saveLocalNote(newNoteData, userRole);
       setNotes([localNote, ...notes]);
     }
 
     setQuickNoteContent('');
     setQuickNoteReminder('');
     setQuickNoteStage('Reached Out');
-    showToast('Note saved to dashboard!', 'success');
+    showToast(isSales ? 'Note saved to sales dashboard!' : 'Note saved to dashboard!', 'success');
     onUpdate();
   };
 
@@ -383,7 +433,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       is_completed: isCompleted
     };
 
-    updateLocalNote(noteId, updates);
+    updateLocalNote(noteId, updates, userRole);
     setNotes(prev => prev.map(n => String(n.id) === String(noteId) ? { ...n, ...updates } : n));
     setOpenNoteDropdownId(null);
 
@@ -422,7 +472,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       is_completed: editNoteStage === 'Converted'
     };
 
-    updateLocalNote(editingNote.id, updates);
+    updateLocalNote(editingNote.id, updates, userRole);
     setNotes(prev => prev.map(n => String(n.id) === String(editingNote.id) ? { ...n, ...updates } : n));
     setEditingNote(null);
     showToast('Note updated successfully!', 'success');
@@ -448,7 +498,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   // Delete note from Dashboard
   const handleDeleteDashboardNote = async (noteId: string) => {
-    deleteLocalNote(noteId);
+    deleteLocalNote(noteId, userRole);
     setNotes(prev => prev.filter(n => String(n.id) !== String(noteId)));
     showToast('Note deleted successfully!', 'success');
     onUpdate();
@@ -484,14 +534,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const conversionRate = Math.round((stageCounts['Converted'] / totalNotesCount) * 100);
 
   // Notes filtering and pagination
+  const effectiveNoteQuery = (noteSearchQuery || searchQuery || '').toLowerCase().trim();
   const filteredDashboardNotes = notes.filter(n => {
     const stage = resolveNoteStage(n);
     const matchesStage = selectedNoteStageFilter === 'All' 
       ? true 
       : stage === selectedNoteStageFilter;
-    const matchesQuery = noteSearchQuery.trim() === ''
+    const matchesQuery = effectiveNoteQuery === ''
       ? true
-      : n.content.toLowerCase().includes(noteSearchQuery.toLowerCase());
+      : n.content.toLowerCase().includes(effectiveNoteQuery) || stage.toLowerCase().includes(effectiveNoteQuery);
     return matchesStage && matchesQuery;
   });
 
@@ -550,6 +601,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   const filteredAllEnquiries = enquiries
     .slice()
+    .filter(e => {
+      const q = (searchQuery || '').toLowerCase().trim();
+      if (!q) return true;
+      const c = courses.find(course => course.id === e.course_id);
+      return e.contact_name.toLowerCase().includes(q) || 
+             (e.contact_phone && e.contact_phone.includes(q)) || 
+             (c && c.name.toLowerCase().includes(q)) ||
+             (e.notes && e.notes.toLowerCase().includes(q));
+    })
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   const totalPages = Math.ceil(filteredAllEnquiries.length / rowsPerPage) || 1;
@@ -587,9 +647,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
           <h2 style={{ fontSize: '17px', fontWeight: 800, color: '#162e3b', margin: 0 }}>
             {isSales ? 'Pipeline Overview' : 'Overview'}
           </h2>
-          <span style={{ fontSize: '12.5px', color: '#5b7b88', fontWeight: 600 }}>
-            {notes.length} notes entered in tracker
-          </span>
+          {isSales && (
+            <span style={{ fontSize: '12.5px', color: '#5b7b88', fontWeight: 600 }}>
+              {notes.length} notes entered in tracker
+            </span>
+          )}
         </div>
 
         {isSales ? (
@@ -754,7 +816,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
               <form onSubmit={handleQuickAddNote} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <textarea
-                  placeholder="Type note details here... (e.g. Spoke with client, confirmed interest in AI syllabus)"
+                  id="sales-quick-note-textarea"
+                  placeholder="Type sales note details here... (e.g. Spoke with client, scheduled consultation call)"
                   value={quickNoteContent}
                   onChange={(e) => setQuickNoteContent(e.target.value)}
                   style={{
@@ -1042,7 +1105,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         <div className="glass-card" style={{ padding: '24px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
             <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#162e3b', margin: 0 }}>
-              Top courses by interest
+              {isSales ? 'Pipeline Stage Distribution' : 'Top courses by interest'}
             </h3>
             <span style={{ fontSize: '12px', fontWeight: 600, color: '#5b7b88' }}>
               {notes.length} notes
@@ -1113,16 +1176,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
       </div>
 
-      {/* Customer Notes & Action Log (What was entered in notes displayed on Dashboard) */}
-      <div className="glass-card" style={{ padding: '0' }}>
+      {/* Customer Notes & Action Log (Strictly for Sales Dashboard - Admin uses dedicated Recent Notes page) */}
+      {isSales && (
+        <div className="glass-card" style={{ padding: '0' }} id="sales-notes-section">
         <div style={{ padding: '20px 24px', borderBottom: '1px solid #eef4f7', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
           <div>
             <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#162e3b', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
               <BookOpen size={20} style={{ color: '#477987' }} />
-              Customer Notes & Action Log ({filteredDashboardNotes.length})
+              {isSales ? 'Sales Notes & Action Log' : 'Administrative Notes & Action Log'} ({filteredDashboardNotes.length})
             </h2>
             <p style={{ color: '#5b7b88', fontSize: '13px', margin: '3px 0 0 0' }}>
-              Displaying notes and pipeline entries logged by the counseling team.
+              {isSales
+                ? 'Displaying recent notes entered by the sales desk. Reflects only in the sales dashboard.'
+                : 'Displaying institutional and administrative operational notes logged by the admin team.'}
             </p>
           </div>
 
@@ -1146,7 +1212,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#7a9aa7' }} />
             </div>
 
-            {onNavigateTab && (
+            {!isSales && onNavigateTab && (
               <button
                 onClick={() => onNavigateTab('notes')}
                 className="btn btn-secondary"
@@ -1229,7 +1295,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 const isOpen = openNoteDropdownId === n.id;
 
                 return (
-                  <tr key={n.id}>
+                  <tr key={n.id} id={`sales-note-row-${n.id}`}>
                     <td style={{ fontSize: '13px', color: '#5b7b88', fontWeight: 500, verticalAlign: 'top' }}>
                       {new Date(n.timestamp).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
                     </td>
@@ -1396,6 +1462,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         )}
       </div>
+      )}
 
       {/* Leads board requiring action (Admin only - Sales dashboard focuses on customer notes) */}
       {!isSales && (
