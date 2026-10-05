@@ -10,6 +10,7 @@ import ManageCourses from './pages/ManageCourses';
 import SettingsPage from './pages/Settings';
 import Login from './pages/Login';
 import Notes from './pages/Notes';
+import SalesNotes from './pages/SalesNotes';
 import PendingNotes from './pages/PendingNotes';
 import Employees from './pages/Employees';
 import TeamTasks from './pages/TeamTasks';
@@ -55,7 +56,7 @@ export const App: React.FC = () => {
       return hash === 'daily-reports' ? 'daily-reports' : 'employee-tasks';
     }
     if (currentUser?.role === 'sales') {
-      return 'dashboard';
+      return hash === 'notes' ? 'notes' : 'dashboard';
     }
     return hash || 'dashboard';
   });
@@ -98,8 +99,11 @@ export const App: React.FC = () => {
           window.location.hash = 'employee-tasks';
         }
       } else if (currentUser.role === 'sales') {
-        setActiveTab('dashboard');
-        if (hash !== 'dashboard') {
+        const validSalesTabs = ['dashboard', 'notes'];
+        if (validSalesTabs.includes(hash)) {
+          setActiveTab(hash);
+        } else {
+          setActiveTab('dashboard');
           window.location.hash = 'dashboard';
         }
       } else {
@@ -354,7 +358,7 @@ export const App: React.FC = () => {
         {/* Main Sales Viewport */}
         <main className="main-content">
           <Header
-            activeTab="dashboard"
+            activeTab={activeTab}
             setActiveTab={setActiveTab}
             pendingCount={pendingNotesCount}
             theme={theme}
@@ -368,15 +372,23 @@ export const App: React.FC = () => {
           />
 
           <div style={{ marginTop: '8px' }}>
-            <Dashboard
-              isDemo={isDemo}
-              refreshTrigger={refreshTrigger}
-              onUpdate={handleDatabaseUpdate}
-              onNavigateToLead={handleNavigateToLead}
-              currentUser={currentUser}
-              onNavigateTab={setActiveTab}
-              searchQuery={globalSearchQuery}
-            />
+            {activeTab === 'notes' ? (
+              <SalesNotes
+                currentUser={currentUser}
+                onUpdate={handleDatabaseUpdate}
+                searchQuery={globalSearchQuery}
+              />
+            ) : (
+              <Dashboard
+                isDemo={isDemo}
+                refreshTrigger={refreshTrigger}
+                onUpdate={handleDatabaseUpdate}
+                onNavigateToLead={handleNavigateToLead}
+                currentUser={currentUser}
+                onNavigateTab={setActiveTab}
+                searchQuery={globalSearchQuery}
+              />
+            )}
           </div>
         </main>
       </div>

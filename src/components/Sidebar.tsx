@@ -51,7 +51,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       ]
     : isSales
     ? [
-        { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, badge: pendingNotesCount }
+        { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+        { id: 'notes', label: 'Recent notes', icon: StickyNote, badge: pendingNotesCount }
       ]
     : [
         { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },

@@ -19,6 +19,7 @@ interface EnquiryCardProps {
     field: 'interested' | 'follow_up_done' | 'can_follow_up',
     currentVal: boolean | null
   ) => void;
+  hideCourseDetails?: boolean;
 }
 
 export const EnquiryCard: React.FC<EnquiryCardProps> = ({
@@ -26,7 +27,8 @@ export const EnquiryCard: React.FC<EnquiryCardProps> = ({
   courses,
   categories,
   onEdit,
-  onToggleStatus
+  onToggleStatus,
+  hideCourseDetails = false
 }) => {
   const course = courses.find(c => c.id === enquiry.course_id);
   const category = categories.find(c => c.id === enquiry.category_id);
@@ -58,6 +60,42 @@ export const EnquiryCard: React.FC<EnquiryCardProps> = ({
     if (val === true) return '#389d77'; // Green
     if (val === false) return '#e05342'; // Coral red
     return '#a4c4cf'; // Slate / pending
+  };
+
+  // Helper to detect course names or course-related terms in enquiry notes
+  const isCourseRelatedNote = (noteText?: string): boolean => {
+    if (!noteText) return false;
+    const lower = noteText.toLowerCase();
+    const courseKeywords = [
+      'course',
+      'courses',
+      'class',
+      'classes',
+      'syllabus',
+      'duration',
+      'curriculum',
+      'batch',
+      'batches',
+      'training',
+      'level',
+      'python',
+      'german',
+      'java',
+      'react',
+      'neet',
+      'jee',
+      'full stack',
+      'data science',
+      'academy',
+      'demo class',
+      'program',
+      'subject',
+      'coaching',
+      'tuition'
+    ];
+    if (courseKeywords.some(kw => lower.includes(kw))) return true;
+    if (courses && courses.some(c => c.name && lower.includes(c.name.toLowerCase().trim()))) return true;
+    return false;
   };
 
   // Helper for rendering the 3 status pills
@@ -192,18 +230,33 @@ export const EnquiryCard: React.FC<EnquiryCardProps> = ({
 
         {/* Division Badge & Reminder Due Status */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-          <span
-            style={{
-              fontSize: '11px',
-              fontWeight: 700,
-              padding: '3px 9px',
-              borderRadius: '6px',
-              backgroundColor: '#c4dce6',
-              color: '#274d5b'
-            }}
-          >
-            {category?.name || 'General'}
-          </span>
+          {!hideCourseDetails ? (
+            <span
+              style={{
+                fontSize: '11px',
+                fontWeight: 700,
+                padding: '3px 9px',
+                borderRadius: '6px',
+                backgroundColor: '#c4dce6',
+                color: '#274d5b'
+              }}
+            >
+              {category?.name || 'General'}
+            </span>
+          ) : (
+            <span
+              style={{
+                fontSize: '11px',
+                fontWeight: 700,
+                padding: '3px 9px',
+                borderRadius: '6px',
+                backgroundColor: '#eef5f8',
+                color: '#477987'
+              }}
+            >
+              Client Lead
+            </span>
+          )}
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600, color: '#477765' }}>
             <span
@@ -218,15 +271,17 @@ export const EnquiryCard: React.FC<EnquiryCardProps> = ({
           </div>
         </div>
 
-        {/* Course Name & Fee */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '14px', flexWrap: 'wrap', gap: '6px' }}>
-          <span style={{ fontSize: '15px', fontWeight: 700, color: '#162e3b' }}>
-            {course?.name || 'Program Enquiry'}
-          </span>
-          <span style={{ fontSize: '15px', fontWeight: 800, color: '#245869' }}>
-            {course?.fee || ''}
-          </span>
-        </div>
+        {/* Course Name & Fee (Only shown when not hidden) */}
+        {!hideCourseDetails && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '14px', flexWrap: 'wrap', gap: '6px' }}>
+            <span style={{ fontSize: '15px', fontWeight: 700, color: '#162e3b' }}>
+              {course?.name || 'Program Enquiry'}
+            </span>
+            <span style={{ fontSize: '15px', fontWeight: 800, color: '#245869' }}>
+              {course?.fee || ''}
+            </span>
+          </div>
+        )}
 
         {/* Tracking Progress Bar & Label */}
         <div style={{ marginBottom: '14px' }}>
@@ -283,7 +338,7 @@ export const EnquiryCard: React.FC<EnquiryCardProps> = ({
           )}
         </div>
 
-        {enquiry.notes && (
+        {enquiry.notes && !(hideCourseDetails && isCourseRelatedNote(enquiry.notes)) && (
           <div
             style={{
               fontSize: '12px',

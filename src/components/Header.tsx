@@ -163,16 +163,16 @@ export const Header: React.FC<HeaderProps> = ({
         };
       case 'notes':
         return {
-          title: isSales ? 'Sales Meeting & Client Notes' : 'Recent Notes',
+          title: isSales ? 'Sales Recent Notes' : 'Recent Notes',
           subtitle: isSales
-            ? 'Capture client meeting details. Reflects directly in your sales dashboard.'
+            ? 'Capture client conversation details, track pipeline stages, and follow-up reminders.'
             : 'Record administrative, operational, and facility management notes.'
         };
       case 'dashboard':
         return {
           title: isSales ? 'Sales Dashboard' : 'Admin Hub',
           subtitle: isSales
-            ? 'Client conversation notes, follow-up reminders, and sales pipeline.'
+            ? 'Overview of student and client leads, follow-up statuses, and enquiries ledger.'
             : 'Every open lead, its reminder status, and the full tracking ledger.'
         };
       case 'leads':
@@ -314,28 +314,34 @@ export const Header: React.FC<HeaderProps> = ({
 
   const handleCardClick = (noteId: string) => {
     setIsNotifOpen(false);
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('focus-sales-note', { detail: { noteId } }));
+    if (isSales) {
+      setActiveTab('notes');
+      setTimeout(() => {
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('focus-sales-note', { detail: { noteId } }));
+        }
+      }, 100);
     }
   };
 
   const handleScrollToSalesNotes = () => {
     setIsNotifOpen(false);
-    const section = document.getElementById('sales-notes-section');
-    if (section) {
-      section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (isSales) {
+      setActiveTab('notes');
     }
   };
 
   const handleFocusSalesQuickNote = () => {
     setIsNotifOpen(false);
-    const ta = document.getElementById('sales-quick-note-textarea');
-    if (ta) {
-      ta.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      ta.focus();
-    } else {
-      const section = document.getElementById('sales-notes-section');
-      if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (isSales) {
+      setActiveTab('notes');
+      setTimeout(() => {
+        const ta = document.getElementById('sales-quick-note-textarea');
+        if (ta) {
+          ta.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          ta.focus();
+        }
+      }, 100);
     }
   };
 

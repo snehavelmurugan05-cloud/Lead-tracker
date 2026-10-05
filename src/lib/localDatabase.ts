@@ -33,41 +33,53 @@ export interface Enquiry {
   updated_at: string;
 }
 
-export type NoteStage = 'Reached Out' | 'Pipeline' | 'Converted' | 'To Be Follow Up' | 'Delivery Due';
-
-export interface Note {
-  id: string;
-  content: string;
-  timestamp: string;
-  reminderDate?: string;
-  is_completed?: boolean;
-  action_item?: 'Pending' | 'Completed' | string;
-  stage?: NoteStage | string;
-  role?: 'admin' | 'sales' | string;
-  created_by?: string;
-}
+export type NoteStage =
+  | 'Target Customer'
+  | 'Lead Generation'
+  | 'Demo'
+  | 'Requirement Gathering'
+  | 'Estimation'
+  | 'Proposal'
+  | 'Customer Onboarding'
+  | 'Reached Out'
+  | 'Pipeline'
+  | 'Converted'
+  | 'To Be Follow Up'
+  | 'Delivery Due';
 
 export const NOTE_STAGES: NoteStage[] = [
-  'Reached Out',
-  'Pipeline',
-  'Converted',
-  'To Be Follow Up',
-  'Delivery Due'
+  'Target Customer',
+  'Lead Generation',
+  'Demo',
+  'Requirement Gathering',
+  'Estimation',
+  'Proposal',
+  'Customer Onboarding'
+];
+
+export const SALES_FLOW_STAGES: NoteStage[] = [
+  'Target Customer',
+  'Lead Generation',
+  'Demo',
+  'Requirement Gathering',
+  'Estimation',
+  'Proposal',
+  'Customer Onboarding'
 ];
 
 export const resolveNoteStage = (n: Note): NoteStage => {
   if (n.stage && NOTE_STAGES.includes(n.stage as NoteStage)) {
     return n.stage as NoteStage;
   }
-  const action = (n.action_item || '').toLowerCase().trim();
-  if (action === 'completed') return 'Converted';
-  if (action === 'pending') return 'To Be Follow Up';
-  if (action === 'reached out') return 'Reached Out';
-  if (action === 'pipeline') return 'Pipeline';
-  if (action === 'converted') return 'Converted';
-  if (action === 'to be follow up') return 'To Be Follow Up';
-  if (action === 'delivery due') return 'Delivery Due';
-  return 'Reached Out';
+  const action = (n.stage || n.action_item || '').toLowerCase().trim();
+  if (action.includes('onboard') || action.includes('converted') || action === 'completed') return 'Customer Onboarding';
+  if (action.includes('proposal') || action === 'delivery due') return 'Proposal';
+  if (action.includes('estimation') || action.includes('fee')) return 'Estimation';
+  if (action.includes('requirement') || action === 'pipeline') return 'Requirement Gathering';
+  if (action.includes('demo') || action === 'to be follow up') return 'Demo';
+  if (action.includes('generation') || action === 'reached out') return 'Lead Generation';
+  if (action.includes('target')) return 'Target Customer';
+  return 'Lead Generation';
 };
 
 export interface UserSession {
