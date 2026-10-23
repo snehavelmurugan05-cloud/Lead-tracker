@@ -30,7 +30,9 @@ import {
   Handshake,
   Plus,
   Copy,
-  Check
+  Check,
+  Users,
+  User
 } from 'lucide-react';
 import EnquiryCard from '../components/EnquiryCard';
 import { SALES_STAGE_THEME, formatRelativeDue } from './SalesNotes';
@@ -175,6 +177,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [editingSalesNote, setEditingSalesNote] = useState<Note | null>(null);
   const [noteToDelete, setNoteToDelete] = useState<Note | null>(null);
   const [showAddSalesNoteModal, setShowAddSalesNoteModal] = useState<boolean>(false);
+  const [selectedSalesPerson, setSelectedSalesPerson] = useState<string>(() => {
+    if (user?.role === 'sales' && user?.name && user.name.toLowerCase() !== 'sales desk') {
+      return user.name;
+    }
+    return 'all';
+  });
+  const [newSalesNoteCreator, setNewSalesNoteCreator] = useState<string>(() => user?.name || 'Amsulekha');
   const [newSalesNoteContent, setNewSalesNoteContent] = useState<string>('');
   const [newSalesNoteStage, setNewSalesNoteStage] = useState<NoteStage | ''>('');
   const [newSalesNoteCategory, setNewSalesNoteCategory] = useState<SalesWorkstreamCategory | ''>('');
@@ -270,12 +279,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const finalCategory = hasCategory ? (newSalesNoteCategory as SalesWorkstreamCategory) : undefined;
     const isConverted = finalStage === 'Customer Onboarding' || finalStage === 'Converted' || finalStage === 'Partnership Followup';
     const finalActionItem = finalCategory ? `Workstream: ${finalCategory}` : (finalStage || undefined);
+    const creatorName = newSalesNoteCreator || user?.name || 'Amsulekha';
 
     const notePayload: Note = {
       id: noteId,
       content: newSalesNoteContent.trim(),
       role: 'sales',
-      created_by: user?.name || 'Sales Desk',
+      created_by: creatorName,
       stage: finalStage,
       action_item: finalActionItem,
       category: finalCategory,
@@ -313,14 +323,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
     setShowAddSalesNoteModal(false);
     setIsSavingNewSalesNote(false);
     
+    // Switch view to this creator or keep 'all' if selected
+    if (selectedSalesPerson !== 'all' && selectedSalesPerson.toLowerCase() !== creatorName.toLowerCase()) {
+      setSelectedSalesPerson(creatorName);
+    }
+
     // Reset filters so the newly added note is immediately visible in the ledger
     setSalesDateFilter('all');
     setNotesStageFilter('all');
     setSalesCategoryFilter('all');
     setSalesSearchText('');
+    setOverviewCardFilter('all');
     setSalesNotesCurrentPage(1);
 
-    showToast('Sales note added to Sales Dashboard successfully!', 'success');
+    showToast(`Sales note recorded under ${creatorName}!`, 'success');
     onUpdate();
   };
 
@@ -354,6 +370,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const finalActionItem = finalCategory ? `Workstream: ${finalCategory}` : (finalStage || null);
 
     const isCompleted = Boolean(finalStage === 'Customer Onboarding' || finalStage === 'Converted' || finalStage === 'Partnership Followup' || editingSalesNote.is_completed);
+    const creatorName = editingSalesNote.created_by || user?.name || 'Sales Desk';
 
     if (supabase) {
       try {
@@ -361,6 +378,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           content: editingSalesNote.content.trim(),
           stage: finalStage || null,
           action_item: finalActionItem,
+          created_by: creatorName,
           reminderDate: editingSalesNote.reminderDate || null,
           is_completed: isCompleted
         }).eq('id', editingSalesNote.id);
@@ -377,6 +395,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       stage: finalStage,
       action_item: finalActionItem || undefined,
       category: finalCategory,
+      created_by: creatorName,
       reminderDate: editingSalesNote.reminderDate || undefined,
       is_completed: isCompleted
     }, 'sales');
@@ -615,18 +634,43 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   const maxCourseCount = Math.max(...courseInterestCounts.map(c => c.count), 1);
 
-  // Sales-specific note-driven metrics (for Sales role based on salesNotes)
+  // Sales Person list and scoped notes
+  const salesPersonsList = useMemo(() => {
+    const list = ['Sales Desk', 'Amsulekha'];
+    salesNotes.forEach(n => {
+      if (n.created_by && n.created_by !== 'Admin' && n.created_by !== 'System' && !list.includes(n.created_by)) {
+        list.push(n.created_by);
+      }
+    });
+    return list;
+  }, [salesNotes]);
+
+  // Scoped sales notes according to selectedSalesPerson filter ('all', 'Sales Desk', 'Amsulekha')
+  const scopedSalesNotes = useMemo(() => {
+    return salesNotes.filter(n => {
+      if (n.role === 'admin' || n.created_by === 'Admin') return false;
+      if (selectedSalesPerson === 'all') return true;
+      const creator = (n.created_by || 'Sales Desk').trim().toLowerCase();
+      const sel = selectedSalesPerson.trim().toLowerCase();
+      if (sel === 'amsulekha' || sel === 'sales 1' || sel === 'sales1') {
+        return creator === 'amsulekha' || creator === 'sales 1' || creator === 'sales1';
+      }
+      return creator === sel;
+    });
+  }, [salesNotes, selectedSalesPerson]);
+
+  // Sales-specific note-driven metrics (for Sales role based on scopedSalesNotes)
   const todayDateStr = new Date().toISOString().split('T')[0];
-  const salesTotalCount = salesNotes.length;
+  const salesTotalCount = scopedSalesNotes.length;
   const isCompletedStage = (stg: string | null) => Boolean(stg && (stg === 'Customer Onboarding' || stg === 'Converted'));
   const isConvertedNote = (n: Note) => Boolean(n.is_completed || isCompletedStage(resolveNoteStage(n)) || n.stage === 'Converted' || n.stage === 'Customer Onboarding' || n.action_item === 'Converted');
-  const salesUnresolvedCount = salesNotes.filter(n => !isConvertedNote(n)).length;
-  const salesDueReminderCount = salesNotes.filter(n => Boolean(n.reminderDate && n.reminderDate <= todayDateStr && !isConvertedNote(n))).length;
-  const salesFeeCount = salesNotes.filter(n => resolveNoteStage(n) === 'Estimation' || resolveNoteStage(n) === 'Proposal').length;
-  const salesNotReachableCount = salesNotes.filter(n => Boolean(n.reminderDate && n.reminderDate < todayDateStr && !isConvertedNote(n))).length;
-  const salesResolvedCount = salesNotes.filter(n => isConvertedNote(n)).length;
+  const salesUnresolvedCount = scopedSalesNotes.filter(n => !isConvertedNote(n)).length;
+  const salesDueReminderCount = scopedSalesNotes.filter(n => Boolean(n.reminderDate && n.reminderDate <= todayDateStr && !isConvertedNote(n))).length;
+  const salesFeeCount = scopedSalesNotes.filter(n => resolveNoteStage(n) === 'Estimation' || resolveNoteStage(n) === 'Proposal').length;
+  const salesNotReachableCount = scopedSalesNotes.filter(n => Boolean(n.reminderDate && n.reminderDate < todayDateStr && !isConvertedNote(n))).length;
+  const salesResolvedCount = scopedSalesNotes.filter(n => isConvertedNote(n)).length;
   const salesResolvedPercent = salesTotalCount > 0 ? Math.round((salesResolvedCount / salesTotalCount) * 100) : 0;
-  const salesFollowupsCompletedCount = salesNotes.filter(n => isConvertedNote(n) || resolveNoteStage(n) === 'Proposal').length;
+  const salesFollowupsCompletedCount = scopedSalesNotes.filter(n => isConvertedNote(n) || resolveNoteStage(n) === 'Proposal').length;
 
   type OverviewCardKey = 'unresolved' | 'due' | 'total' | 'fee_shared' | 'not_reachable';
 
@@ -693,17 +737,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const getSalesCardNotes = (key: OverviewCardKey): Note[] => {
     switch (key) {
       case 'unresolved':
-        return salesNotes.filter(n => !isConvertedNote(n));
+        return scopedSalesNotes.filter(n => !isConvertedNote(n));
       case 'due':
-        return salesNotes.filter(n => Boolean(n.reminderDate && n.reminderDate <= todayDateStr && !isConvertedNote(n)));
+        return scopedSalesNotes.filter(n => Boolean(n.reminderDate && n.reminderDate <= todayDateStr && !isConvertedNote(n)));
       case 'total':
-        return salesNotes;
+        return scopedSalesNotes;
       case 'fee_shared':
-        return salesNotes.filter(n => resolveNoteStage(n) === 'Estimation' || resolveNoteStage(n) === 'Proposal');
+        return scopedSalesNotes.filter(n => resolveNoteStage(n) === 'Estimation' || resolveNoteStage(n) === 'Proposal');
       case 'not_reachable':
-        return salesNotes.filter(n => Boolean(n.reminderDate && n.reminderDate < todayDateStr && !isConvertedNote(n)));
+        return scopedSalesNotes.filter(n => Boolean(n.reminderDate && n.reminderDate < todayDateStr && !isConvertedNote(n)));
       default:
-        return salesNotes;
+        return scopedSalesNotes;
     }
   };
 
@@ -820,13 +864,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return true;
   };
 
-  // Active sales notes to feed the pipeline flow (scoped to active date filter if selected)
+  // Active sales notes to feed the pipeline flow (scoped to active sales person & date filter)
   const activePipelineNotes = useMemo(() => {
-    return salesNotes.filter(n => {
+    return scopedSalesNotes.filter(n => {
       if (n.role === 'admin' || n.created_by === 'Admin') return false;
       return matchesSalesDateFilter(n);
     });
-  }, [salesNotes, salesDateFilter, salesExactDate, salesCustomStartDate, salesCustomEndDate]);
+  }, [scopedSalesNotes, salesDateFilter, salesExactDate, salesCustomStartDate, salesCustomEndDate]);
 
   const salesPipelineStages = SALES_FLOW_STAGES.map(stageName => ({
     name: stageName,
@@ -835,7 +879,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const maxSalesPipelineStageCount = Math.max(...salesPipelineStages.map(s => s.count), 1);
   const activePipelineTotalCount = activePipelineNotes.length;
   const activePipelineCompletedCount = activePipelineNotes.filter(n => n.is_completed || resolveNoteStage(n) === 'Customer Onboarding' || resolveNoteStage(n) === 'Proposal').length;
-  const salesOnboardingCount = salesNotes.filter(n => isCompletedStage(resolveNoteStage(n)) || n.is_completed).length;
+  const salesOnboardingCount = scopedSalesNotes.filter(n => isCompletedStage(resolveNoteStage(n)) || n.is_completed).length;
 
   const handleSelectPipelineStage = (stageName: string) => {
     const next = notesStageFilter === stageName ? 'all' : stageName;
@@ -851,7 +895,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
   // Unique dates present in sales desk ledger for dynamic date-wise filter pills
   const uniqueSalesDates = useMemo(() => {
     const map = new Map<string, number>();
-    salesNotes.forEach(n => {
+    scopedSalesNotes.forEach(n => {
       if (n.role === 'admin' || n.created_by === 'Admin') return;
       const dStr = getNoteDateString(n);
       if (dStr) {
@@ -861,10 +905,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return Array.from(map.entries())
       .sort((a, b) => b[0].localeCompare(a[0]))
       .map(([date, count]) => ({ date, count }));
-  }, [salesNotes]);
+  }, [scopedSalesNotes]);
 
   // Filtered sales notes list for Sales Dashboard Ledger
-  const filteredSalesNotes = salesNotes
+  const filteredSalesNotes = scopedSalesNotes
     .slice()
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
     .filter(n => {
@@ -914,14 +958,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
       return true;
     });
 
-  // Calculate workstream category counts strictly for sales notes
-  const activeSalesNotes = salesNotes.filter(n => n.role !== 'admin' && n.created_by !== 'Admin');
+  // Calculate workstream category counts strictly for scoped sales notes
+  const activeSalesNotes = scopedSalesNotes.filter(n => n.role !== 'admin' && n.created_by !== 'Admin');
   const coldEmailsCount = activeSalesNotes.filter(n => resolveNoteCategories(n).includes('Cold Emails')).length;
   const partnershipCount = activeSalesNotes.filter(n => resolveNoteCategories(n).includes('Partnership')).length;
   const researchCount = activeSalesNotes.filter(n => resolveNoteCategories(n).includes('Research')).length;
 
   // Calculate today's sales updates count
-  const salesTodayUpdates = salesNotes.filter(n => {
+  const salesTodayUpdates = scopedSalesNotes.filter(n => {
     const today = new Date();
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     const d = n.timestamp ? new Date(n.timestamp) : null;
@@ -1407,10 +1451,161 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
       {/* Overview Section: Overall Leads Informations */}
       <div>
+        {/* Sales Specialist Selector Filter Bar */}
+        {isSales && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '12px',
+              padding: '12px 18px',
+              backgroundColor: '#f8fafc',
+              borderRadius: '14px',
+              border: '1.5px solid #e2e8f0',
+              marginBottom: '16px',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.03)'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 800, color: '#1e293b' }}>
+                <Users size={17} style={{ color: '#0284c7' }} />
+                <span>Sales Specialist:</span>
+              </div>
+
+              {/* All Team Pill */}
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedSalesPerson('all');
+                  setSalesNotesCurrentPage(1);
+                }}
+                style={{
+                  padding: '7px 16px',
+                  borderRadius: '24px',
+                  fontSize: '12.5px',
+                  fontWeight: selectedSalesPerson === 'all' ? 800 : 600,
+                  cursor: 'pointer',
+                  border: selectedSalesPerson === 'all' ? '1.5px solid #0284c7' : '1px solid #cbd5e1',
+                  backgroundColor: selectedSalesPerson === 'all' ? '#e0f2fe' : '#ffffff',
+                  color: selectedSalesPerson === 'all' ? '#0369a1' : '#64748b',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  transition: 'all 0.15s ease',
+                  boxShadow: selectedSalesPerson === 'all' ? '0 2px 4px rgba(2,132,199,0.15)' : 'none'
+                }}
+              >
+                <span>👥 All Team</span>
+                <span
+                  style={{
+                    backgroundColor: selectedSalesPerson === 'all' ? '#0284c7' : '#f1f5f9',
+                    color: selectedSalesPerson === 'all' ? '#ffffff' : '#64748b',
+                    fontSize: '11px',
+                    fontWeight: 800,
+                    padding: '1px 7px',
+                    borderRadius: '999px'
+                  }}
+                >
+                  {salesNotes.filter(n => n.role !== 'admin' && n.created_by !== 'Admin').length}
+                </span>
+              </button>
+
+              {/* Individual Sales Person Pills (Sales Desk, Amsulekha, etc.) */}
+              {salesPersonsList.map(person => {
+                const count = salesNotes.filter(n => {
+                  if (n.role === 'admin' || n.created_by === 'Admin') return false;
+                  const c = (n.created_by || 'Sales Desk').trim().toLowerCase();
+                  const p = person.trim().toLowerCase();
+                  if (p === 'amsulekha') return c === 'amsulekha' || c === 'sales 1' || c === 'sales1';
+                  return c === p;
+                }).length;
+
+                const isSelected = selectedSalesPerson.toLowerCase() === person.toLowerCase();
+                const isCurrentLoggedUser = (user?.name || '').toLowerCase() === person.toLowerCase() ||
+                  (user?.name === 'Amsulekha' && person.toLowerCase() === 'amsulekha');
+
+                return (
+                  <button
+                    key={person}
+                    type="button"
+                    onClick={() => {
+                      setSelectedSalesPerson(person);
+                      setSalesNotesCurrentPage(1);
+                    }}
+                    style={{
+                      padding: '7px 16px',
+                      borderRadius: '24px',
+                      fontSize: '12.5px',
+                      fontWeight: isSelected ? 800 : 600,
+                      cursor: 'pointer',
+                      border: isSelected ? '1.5px solid #1ba37c' : '1px solid #cbd5e1',
+                      backgroundColor: isSelected ? '#ccfbf1' : '#ffffff',
+                      color: isSelected ? '#0f766e' : '#64748b',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      transition: 'all 0.15s ease',
+                      boxShadow: isSelected ? '0 2px 4px rgba(27,163,124,0.15)' : 'none'
+                    }}
+                  >
+                    <span>👤 {person}{isCurrentLoggedUser ? ' (You)' : ''}</span>
+                    <span
+                      style={{
+                        backgroundColor: isSelected ? '#1ba37c' : '#f1f5f9',
+                        color: isSelected ? '#ffffff' : '#64748b',
+                        fontSize: '11px',
+                        fontWeight: 800,
+                        padding: '1px 7px',
+                        borderRadius: '999px'
+                      }}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setNewSalesNoteCreator(user?.name || (selectedSalesPerson !== 'all' ? selectedSalesPerson : 'Amsulekha'));
+                  setShowAddSalesNoteModal(true);
+                }}
+                className="btn btn-primary"
+                style={{
+                  padding: '7px 14px',
+                  fontSize: '12.5px',
+                  fontWeight: 700,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  borderRadius: '8px'
+                }}
+              >
+                <Plus size={15} />
+                <span>+ Add Sales Note</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             <h2 style={{ fontSize: '17px', fontWeight: 800, color: '#162e3b', margin: 0 }}>
-              {isSales ? 'Sales Leads Overview' : 'Overall Leads Overview'}
+              {isSales ? (
+                <span>
+                  Sales Leads Overview
+                  {selectedSalesPerson !== 'all' && (
+                    <span style={{ fontSize: '14px', fontWeight: 600, color: '#0f766e', marginLeft: '8px' }}>
+                      — {selectedSalesPerson}
+                    </span>
+                  )}
+                </span>
+              ) : 'Overall Leads Overview'}
             </h2>
             {overviewCardFilter !== 'all' && (
               <span
@@ -1443,7 +1638,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
             )}
           </div>
           <span style={{ fontSize: '12.5px', color: '#5b7b88', fontWeight: 600 }}>
-            {isSales ? salesTotalCount : enquiries.length} total leads recorded in system
+            {isSales
+              ? `${salesTotalCount} ${selectedSalesPerson === 'all' ? 'total team' : selectedSalesPerson} leads recorded`
+              : `${enquiries.length} total leads recorded in system`}
           </span>
         </div>
 
@@ -2085,7 +2282,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       borderRadius: '9999px'
                     }}
                   >
-                    {salesNotes.length} {salesNotes.length === 1 ? 'note' : 'notes'}
+                    {scopedSalesNotes.length} {scopedSalesNotes.length === 1 ? 'note' : 'notes'}
                   </span>
                 </div>
                 <p style={{ fontSize: '13px', color: '#5b7b88', margin: '2px 0 0 0' }}>
@@ -2326,7 +2523,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
           </div>
 
-          {salesNotes.length === 0 ? (
+          {scopedSalesNotes.length === 0 ? (
             <div
               style={{
                 textAlign: 'center',
@@ -2793,7 +2990,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                           cursor: 'pointer'
                         }}
                       >
-                        Reset All Filters ({salesNotes.length} notes)
+                        Reset All Filters ({scopedSalesNotes.length} notes)
                       </button>
                     </div>
                   );
@@ -3013,7 +3210,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 );
               })()}
 
-              {salesNotes.length > 10 && (
+              {scopedSalesNotes.length > 10 && (
                 <div style={{ textAlign: 'center', marginTop: '12px' }}>
                   <button
                     onClick={() => onNavigateTab?.('notes')}
@@ -3626,6 +3823,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     onChange={e => setEditingSalesNote({ ...editingSalesNote, reminderDate: e.target.value })}
                   />
                 </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'hsl(var(--foreground))', marginBottom: '8px' }}>
+                    Sales Specialist / Logged By
+                  </label>
+                  <select
+                    className="form-input"
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', background: 'hsl(var(--background))' }}
+                    value={editingSalesNote.created_by || 'Sales Desk'}
+                    onChange={e => setEditingSalesNote({ ...editingSalesNote, created_by: e.target.value })}
+                  >
+                    <option value="Amsulekha">👤 Amsulekha (Sales 1)</option>
+                    <option value="Sales Desk">👤 Sales Desk</option>
+                  </select>
+                </div>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
@@ -3808,6 +4020,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     onChange={e => setNewSalesNoteReminder(e.target.value)}
                     title="Follow-up Date (Optional - leave blank if not scheduled)"
                   />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 600, color: 'hsl(var(--foreground))', marginBottom: '6px' }}>
+                    Sales Specialist / Logged By
+                  </label>
+                  <select
+                    className="form-input"
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', background: 'hsl(var(--background))', fontSize: '12.5px' }}
+                    value={newSalesNoteCreator}
+                    onChange={e => setNewSalesNoteCreator(e.target.value)}
+                  >
+                    <option value="Amsulekha">👤 Amsulekha (Sales 1)</option>
+                    <option value="Sales Desk">👤 Sales Desk</option>
+                  </select>
                 </div>
               </div>
 

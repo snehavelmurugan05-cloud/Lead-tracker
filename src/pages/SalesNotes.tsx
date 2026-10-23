@@ -17,7 +17,9 @@ import {
   Filter,
   FileSpreadsheet,
   ChevronDown,
-  Download
+  Download,
+  Users,
+  User
 } from 'lucide-react';
 import { getNoteDateString, formatFilterDateLabel, noteMatchesDate } from './Dashboard';
 import {
@@ -102,7 +104,16 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
   const [quickNoteStage, setQuickNoteStage] = useState<NoteStage | ''>('');
   const [quickNoteCategory, setQuickNoteCategory] = useState<SalesWorkstreamCategory | ''>('');
   const [quickNoteReminder, setQuickNoteReminder] = useState('');
+  const [quickNoteCreator, setQuickNoteCreator] = useState<string>(() => currentUser?.name || 'Amsulekha');
   const [isSaving, setIsSaving] = useState(false);
+
+  // Sales Person filter state
+  const [selectedSalesPerson, setSelectedSalesPerson] = useState<string>(() => {
+    if (currentUser?.role === 'sales' && currentUser?.name && currentUser.name.toLowerCase() !== 'sales desk') {
+      return currentUser.name;
+    }
+    return 'all';
+  });
 
   // Table filtering, pagination and search state
   const [stageFilter, setStageFilter] = useState<string>('all');
@@ -296,6 +307,7 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
     const finalActionItem = finalCategory ? `Workstream: ${finalCategory}` : (finalStage || null);
 
     const isCompleted = Boolean(finalStage === 'Customer Onboarding' || finalStage === 'Converted' || finalStage === 'Partnership Followup' || editingNote.is_completed);
+    const creatorName = editingNote.created_by || currentUser?.name || 'Sales Desk';
 
     if (supabase) {
       try {
@@ -303,6 +315,7 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
           content: editingNote.content.trim(),
           stage: finalStage || null,
           action_item: finalActionItem,
+          created_by: creatorName,
           reminderDate: editingNote.reminderDate || null,
           is_completed: isCompleted
         }).eq('id', editingNote.id);
@@ -319,6 +332,7 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
       stage: finalStage,
       action_item: finalActionItem || undefined,
       category: finalCategory,
+      created_by: creatorName,
       reminderDate: editingNote.reminderDate || undefined,
       is_completed: isCompleted
     }, 'sales');
@@ -343,6 +357,7 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
       const hasCategory = Boolean(quickNoteCategory && String(quickNoteCategory) !== 'null' && String(quickNoteCategory) !== 'None');
       const finalCategory = hasCategory ? (quickNoteCategory as SalesWorkstreamCategory) : undefined;
       const finalActionItem = finalCategory ? `Workstream: ${finalCategory}` : (finalStage || undefined);
+      const creatorName = quickNoteCreator || currentUser?.name || 'Amsulekha';
 
       const newNoteData = {
         id: noteId,
@@ -353,7 +368,7 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
         reminderDate: quickNoteReminder || null,
         is_completed: finalStage === 'Customer Onboarding' || finalStage === 'Converted' || finalStage === 'Partnership Followup',
         role: 'sales',
-        created_by: currentUser?.name || 'Sales Desk',
+        created_by: creatorName,
         timestamp: nowIso
       };
 
@@ -382,7 +397,12 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
       setQuickNoteReminder('');
       setQuickNoteStage('');
       setQuickNoteCategory('');
-      showToast('Sales note saved successfully!', 'success');
+
+      if (selectedSalesPerson !== 'all' && selectedSalesPerson.toLowerCase() !== creatorName.toLowerCase()) {
+        setSelectedSalesPerson(creatorName);
+      }
+
+      showToast(`Sales note recorded under ${creatorName}!`, 'success');
       if (onUpdate) onUpdate();
     } finally {
       setIsSaving(false);
@@ -627,9 +647,33 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
     showToast('Date filter cleared. Showing all notes.', 'info');
   };
 
-  // Notes strictly matching the active date filter for stage counts and pipeline distribution
-  const activeDateScopedNotes = useMemo(() => {
+  // Sales Person list and scoped notes
+  const salesPersonsList = useMemo(() => {
+    const list = ['Sales Desk', 'Amsulekha'];
+    notes.forEach(n => {
+      if (n.created_by && n.created_by !== 'Admin' && n.created_by !== 'System' && !list.includes(n.created_by)) {
+        list.push(n.created_by);
+      }
+    });
+    return list;
+  }, [notes]);
+
+  const scopedNotes = useMemo(() => {
     return notes.filter(n => {
+      if (n.role === 'admin' || n.created_by === 'Admin') return false;
+      if (selectedSalesPerson === 'all') return true;
+      const creator = (n.created_by || 'Sales Desk').trim().toLowerCase();
+      const sel = selectedSalesPerson.trim().toLowerCase();
+      if (sel === 'amsulekha' || sel === 'sales 1' || sel === 'sales1') {
+        return creator === 'amsulekha' || creator === 'sales 1' || creator === 'sales1';
+      }
+      return creator === sel;
+    });
+  }, [notes, selectedSalesPerson]);
+
+  // Notes strictly matching the active sales person & date filter for stage counts and pipeline distribution
+  const activeDateScopedNotes = useMemo(() => {
+    return scopedNotes.filter(n => {
       if (n.role === 'admin' || n.created_by === 'Admin') return false;
       const dStr = getNoteDateString(n);
 
@@ -657,7 +701,7 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
       }
       return true;
     });
-  }, [notes, dateFilter, exactDate, customStartDate, customEndDate]);
+  }, [scopedNotes, dateFilter, exactDate, customStartDate, customEndDate]);
 
   // Filtered and paginated sales notes for table
   const filteredNotes = activeDateScopedNotes
@@ -889,6 +933,28 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
                   )}
                 </div>
               </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label style={{ fontSize: '11.5px', fontWeight: 700, color: '#5b7b88' }}>
+                  Sales Specialist
+                </label>
+                <select
+                  value={quickNoteCreator}
+                  onChange={(e) => setQuickNoteCreator(e.target.value)}
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #cbe0e8',
+                    fontSize: '13px',
+                    outline: 'none',
+                    backgroundColor: '#ffffff',
+                    color: '#162e3b'
+                  }}
+                >
+                  <option value="Amsulekha">👤 Amsulekha (Sales 1)</option>
+                  <option value="Sales Desk">👤 Sales Desk</option>
+                </select>
+              </div>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'flex-end', paddingTop: '18px' }}>
@@ -922,6 +988,97 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
 
       {/* Main Full Sales Notes Ledger (Matching Reference Image) */}
       <div className="glass-card" style={{ padding: '24px' }}>
+        {/* Sales Specialist Selector Filter Bar */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px',
+            padding: '12px 18px',
+            backgroundColor: '#f8fafc',
+            borderRadius: '12px',
+            border: '1.5px solid #e2e8f0',
+            marginBottom: '18px'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '12.5px', fontWeight: 800, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Users size={16} style={{ color: '#0284c7' }} />
+              Sales Specialist:
+            </span>
+
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedSalesPerson('all');
+                setCurrentPage(1);
+              }}
+              style={{
+                padding: '6px 14px',
+                borderRadius: '20px',
+                fontSize: '12px',
+                fontWeight: selectedSalesPerson === 'all' ? 800 : 600,
+                cursor: 'pointer',
+                border: selectedSalesPerson === 'all' ? '1.5px solid #0284c7' : '1px solid #cbd5e1',
+                backgroundColor: selectedSalesPerson === 'all' ? '#e0f2fe' : '#ffffff',
+                color: selectedSalesPerson === 'all' ? '#0369a1' : '#64748b',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <span>👥 All Team</span>
+              <span style={{ backgroundColor: selectedSalesPerson === 'all' ? '#0284c7' : '#f1f5f9', color: selectedSalesPerson === 'all' ? '#ffffff' : '#64748b', fontSize: '10.5px', fontWeight: 800, padding: '1px 6px', borderRadius: '999px' }}>
+                {notes.filter(n => n.role !== 'admin' && n.created_by !== 'Admin').length}
+              </span>
+            </button>
+
+            {salesPersonsList.map(person => {
+              const count = notes.filter(n => {
+                if (n.role === 'admin' || n.created_by === 'Admin') return false;
+                const c = (n.created_by || 'Sales Desk').trim().toLowerCase();
+                const p = person.trim().toLowerCase();
+                if (p === 'amsulekha') return c === 'amsulekha' || c === 'sales 1' || c === 'sales1';
+                return c === p;
+              }).length;
+
+              const isSelected = selectedSalesPerson.toLowerCase() === person.toLowerCase();
+              const isCurrentLoggedUser = (currentUser?.name || '').toLowerCase() === person.toLowerCase();
+
+              return (
+                <button
+                  key={person}
+                  type="button"
+                  onClick={() => {
+                    setSelectedSalesPerson(person);
+                    setCurrentPage(1);
+                  }}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: '20px',
+                    fontSize: '12px',
+                    fontWeight: isSelected ? 800 : 600,
+                    cursor: 'pointer',
+                    border: isSelected ? '1.5px solid #1ba37c' : '1px solid #cbd5e1',
+                    backgroundColor: isSelected ? '#ccfbf1' : '#ffffff',
+                    color: isSelected ? '#0f766e' : '#64748b',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <span>👤 {person}{isCurrentLoggedUser ? ' (You)' : ''}</span>
+                  <span style={{ backgroundColor: isSelected ? '#1ba37c' : '#f1f5f9', color: isSelected ? '#ffffff' : '#64748b', fontSize: '10.5px', fontWeight: 800, padding: '1px 6px', borderRadius: '999px' }}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '14px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{ width: '38px', height: '38px', borderRadius: '10px', backgroundColor: 'rgba(71, 121, 135, 0.15)', color: '#477987', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -942,7 +1099,7 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
                     borderRadius: '9999px'
                   }}
                 >
-                  {notes.length} {notes.length === 1 ? 'note' : 'notes'}
+                  {scopedNotes.length} {scopedNotes.length === 1 ? 'note' : 'notes'}
                 </span>
               </div>
               <p style={{ fontSize: '13px', color: '#5b7b88', margin: '2px 0 0 0' }}>
@@ -1765,6 +1922,28 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
                     }}
                     title="Follow-up Date (Optional - leave blank if not scheduled)"
                   />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>
+                    Sales Specialist / Logged By
+                  </label>
+                  <select
+                    value={editingNote.created_by || 'Sales Desk'}
+                    onChange={(e) => setEditingNote({ ...editingNote, created_by: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '13px',
+                      outline: 'none',
+                      backgroundColor: '#ffffff'
+                    }}
+                  >
+                    <option value="Amsulekha">👤 Amsulekha (Sales 1)</option>
+                    <option value="Sales Desk">👤 Sales Desk</option>
+                  </select>
                 </div>
               </div>
 

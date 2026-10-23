@@ -183,7 +183,7 @@ export const App: React.FC = () => {
 
         const { data: nts, error: notesError } = await supabase
           .from('notes')
-          .select('reminderDate, is_completed, stage, action_item')
+          .select('reminderDate, is_completed, stage, action_item, created_by')
           .eq('role', userRole);
 
         if (!notesError && nts) {
@@ -191,11 +191,17 @@ export const App: React.FC = () => {
           const isCompletedStage = (s: string | null) => s === 'Customer Onboarding' || s === 'Converted';
 
           if (userRole === 'sales') {
+            const isIndividualSales = currentUser?.name && currentUser.name.toLowerCase() !== 'sales desk';
             const activeReminders = nts.filter(n => {
               if (n.is_completed) return false;
               if (isCompletedStage(n.stage)) return false;
               if (n.action_item === 'Converted') return false;
               if (!n.reminderDate) return false;
+              if (isIndividualSales) {
+                const c = (n.created_by || 'Sales Desk').toLowerCase();
+                const myName = (currentUser?.name || '').toLowerCase();
+                if (!c.includes(myName) && c !== 'sales 1' && c !== 'sales1') return false;
+              }
               return n.reminderDate <= todayDateStr;
             });
             setPendingNotesCount(activeReminders.length);

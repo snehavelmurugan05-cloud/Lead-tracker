@@ -112,6 +112,12 @@ export const Header: React.FC<HeaderProps> = ({
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [salesFilter, setSalesFilter] = useState<'all' | 'overdue' | 'today' | 'upcoming'>('all');
+  const [salesReminderScope, setSalesReminderScope] = useState<'mine' | 'all'>(() => {
+    if (currentUser?.role === 'sales' && currentUser?.name && currentUser.name.toLowerCase() !== 'sales desk') {
+      return 'mine';
+    }
+    return 'all';
+  });
   const [quickFeedback, setQuickFeedback] = useState<string | null>(null);
 
   const searchContainerRef = useRef<HTMLDivElement>(null);
@@ -297,12 +303,22 @@ export const Header: React.FC<HeaderProps> = ({
   const isCompletedStage = (stg: string | null | undefined) => 
     Boolean(stg && (stg === 'Customer Onboarding' || stg === 'Converted'));
 
+  const isIndividualSales = isSales && currentUser?.name && currentUser.name.toLowerCase() !== 'sales desk';
+
+  const matchesSalesScope = (n: Note) => {
+    if (!isIndividualSales || salesReminderScope === 'all') return true;
+    const c = (n.created_by || 'Sales Desk').toLowerCase();
+    const myName = (currentUser?.name || '').toLowerCase();
+    return c.includes(myName) || c === 'sales 1' || c === 'sales1';
+  };
+
   // Active uncompleted sales notes
   const activeSalesNotes = isSales ? salesNotes.filter(n => {
     if (n.is_completed) return false;
     if (n.stage === 'Converted' || n.stage === 'Customer Onboarding') return false;
     if (n.action_item === 'Converted') return false;
     if (isCompletedStage(resolveNoteStage(n))) return false;
+    if (!matchesSalesScope(n)) return false;
     return true;
   }) : [];
 
@@ -1100,6 +1116,50 @@ export const Header: React.FC<HeaderProps> = ({
                         }}
                       >
                         ✓ {quickFeedback}
+                      </div>
+                    )}
+
+                    {/* Individual Sales Person Scope Switcher (My Reminders vs All Team) */}
+                    {isIndividualSales && (
+                      <div style={{ display: 'flex', gap: '6px', marginBottom: '8px', padding: '3px', backgroundColor: '#f1f5f9', borderRadius: '8px' }}>
+                        <button
+                          type="button"
+                          onClick={() => setSalesReminderScope('mine')}
+                          style={{
+                            flex: 1,
+                            padding: '5px 8px',
+                            borderRadius: '6px',
+                            border: 'none',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            backgroundColor: salesReminderScope === 'mine' ? '#ffffff' : 'transparent',
+                            color: salesReminderScope === 'mine' ? '#0f766e' : '#64748b',
+                            boxShadow: salesReminderScope === 'mine' ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          👤 My Reminders
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSalesReminderScope('all')}
+                          style={{
+                            flex: 1,
+                            padding: '5px 8px',
+                            borderRadius: '6px',
+                            border: 'none',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            backgroundColor: salesReminderScope === 'all' ? '#ffffff' : 'transparent',
+                            color: salesReminderScope === 'all' ? '#0369a1' : '#64748b',
+                            boxShadow: salesReminderScope === 'all' ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          👥 All Team
+                        </button>
                       </div>
                     )}
 

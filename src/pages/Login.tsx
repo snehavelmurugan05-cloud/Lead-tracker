@@ -119,11 +119,25 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         }
       }
 
-      // 2. Sales Credentials Check (Works from ANY tab)
-      const isSalesUser =
-        trimmedUser === 'sales' ||
-        trimmedUser === 'sales@globalminds.com' ||
-        trimmedUser.split('@')[0] === 'sales';
+      // 2. Sales Credentials Check (Supports Sales Desk and Amsulekha / Sales 1)
+      const cleanUserLower = trimmedUser.toLowerCase().trim().replace(/\s+/g, ' ');
+      const userNoSpaces = trimmedUser.toLowerCase().replace(/[\s\-_]+/g, '');
+
+      const isAmsulekha =
+        cleanUserLower === 'sales 1' ||
+        userNoSpaces === 'sales1' ||
+        cleanUserLower === 'amsulekha' ||
+        cleanUserLower.startsWith('sales 1@') ||
+        cleanUserLower.startsWith('sales1@') ||
+        cleanUserLower.startsWith('amsulekha@');
+
+      const isMainSales =
+        !isAmsulekha && (
+          cleanUserLower === 'sales' ||
+          cleanUserLower === 'salesdesk' ||
+          cleanUserLower === 'sales desk' ||
+          cleanUserLower.startsWith('sales@')
+        );
 
       const standardSalesPasswords = [
         'sales',
@@ -136,10 +150,33 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
       ];
       const isValidSalesPass =
         standardSalesPasswords.some(p => p.toLowerCase() === trimmedPass.toLowerCase()) ||
+        trimmedPass === 'sales' ||
+        trimmedPass === 'Sales' ||
         trimmedPass === 'Sales@123' ||
         trimmedPass === 'Sales123';
 
-      if (isSalesUser) {
+      if (isAmsulekha) {
+        if (isValidSalesPass) {
+          setIsLoading(false);
+          const amsulekhaSession: UserSession = {
+            role: 'sales',
+            id: 'sales-amsulekha',
+            name: 'Amsulekha',
+            username: 'sales 1',
+            email: 'sales1@globalminds.com',
+            role_title: 'Sales Specialist · Global Minds'
+          };
+          setCurrentUserSession(amsulekhaSession);
+          onLoginSuccess(amsulekhaSession);
+          return;
+        } else {
+          setIsLoading(false);
+          setErrorMsg('Invalid password for Amsulekha. Password is "sales".');
+          return;
+        }
+      }
+
+      if (isMainSales) {
         if (isValidSalesPass) {
           setIsLoading(false);
           const salesSession: UserSession = {
@@ -155,7 +192,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
           return;
         } else {
           setIsLoading(false);
-          setErrorMsg('Invalid password for Sales Desk. Standard sales password is "sales123".');
+          setErrorMsg('Invalid password for Sales Desk. Standard password is "sales".');
           return;
         }
       }
@@ -613,7 +650,39 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                   <div style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'center', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
                     Quick One-Click Sign In (Instant Access)
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const amsulekhaSession: UserSession = {
+                          role: 'sales',
+                          id: 'sales-amsulekha',
+                          name: 'Amsulekha',
+                          username: 'sales 1',
+                          email: 'sales1@globalminds.com',
+                          role_title: 'Sales Specialist · Global Minds'
+                        };
+                        setCurrentUserSession(amsulekhaSession);
+                        onLoginSuccess(amsulekhaSession);
+                      }}
+                      style={{
+                        padding: '8px 10px',
+                        borderRadius: '6px',
+                        backgroundColor: 'rgba(27, 163, 124, 0.25)',
+                        border: '1px solid rgba(27, 163, 124, 0.5)',
+                        color: '#ffffff',
+                        fontSize: '11.5px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <span>👤</span> Amsulekha
+                    </button>
                     <button
                       type="button"
                       onClick={() => {
