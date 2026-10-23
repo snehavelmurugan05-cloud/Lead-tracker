@@ -194,7 +194,8 @@ export const normalizeSalesNote = (note: Note): Note => {
     category: resolvedCategory,
     stage: resolvedStage,
     action_item: resolvedActionItem,
-    is_completed: isCompleted
+    is_completed: isCompleted,
+    reminderDate: isCompleted ? undefined : (note.reminderDate || undefined)
   };
 };
 

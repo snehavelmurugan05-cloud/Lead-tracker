@@ -345,14 +345,15 @@ export const Header: React.FC<HeaderProps> = ({
         await supabase.from('notes').update({
           is_completed: true,
           stage: 'Converted',
-          action_item: 'Converted'
+          action_item: 'Converted',
+          reminderDate: null
         }).eq('id', noteId);
       } catch (err) {
         console.error('Error marking converted in Supabase:', err);
       }
     }
     // 2. Update local storage
-    updateLocalNote(noteId, { is_completed: true, stage: 'Converted', action_item: 'Converted' }, 'sales');
+    updateLocalNote(noteId, { is_completed: true, stage: 'Converted', action_item: 'Converted', reminderDate: undefined }, 'sales');
     setSalesNotes(getLocalNotes('sales'));
     setQuickFeedback('Marked as Converted!');
     setTimeout(() => setQuickFeedback(null), 2500);

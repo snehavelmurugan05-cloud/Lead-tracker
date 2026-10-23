@@ -2889,7 +2889,22 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                   </div>
                                 </td>
                                 <td style={{ verticalAlign: 'middle' }}>
-                                  {note.reminderDate ? (
+                                  {isConvertedNote(note) ? (
+                                    <span
+                                      style={{
+                                        fontSize: '11px',
+                                        fontWeight: 600,
+                                        color: '#15803d',
+                                        backgroundColor: 'rgba(21, 128, 61, 0.1)',
+                                        border: '1px solid rgba(21, 128, 61, 0.25)',
+                                        borderRadius: '10px',
+                                        padding: '2px 9px',
+                                        whiteSpace: 'nowrap'
+                                      }}
+                                    >
+                                      Resolved
+                                    </span>
+                                  ) : note.reminderDate ? (
                                     <span
                                       style={{
                                         fontSize: '11px',

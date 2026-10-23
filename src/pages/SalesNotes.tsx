@@ -1487,7 +1487,22 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
                           </div>
                         </td>
                         <td style={{ verticalAlign: 'middle' }}>
-                          {note.reminderDate ? (
+                          {Boolean(note.is_completed || stage === 'Customer Onboarding' || note.stage === 'Converted' || note.action_item === 'Converted') ? (
+                            <span
+                              style={{
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                color: '#15803d',
+                                backgroundColor: 'rgba(21, 128, 61, 0.1)',
+                                border: '1px solid rgba(21, 128, 61, 0.25)',
+                                borderRadius: '10px',
+                                padding: '2px 9px',
+                                whiteSpace: 'nowrap'
+                              }}
+                            >
+                              Resolved
+                            </span>
+                          ) : note.reminderDate ? (
                             <span
                               style={{
                                 fontSize: '11px',
