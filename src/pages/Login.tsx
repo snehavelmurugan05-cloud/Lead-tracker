@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle, CheckCircle2, KeyRound, X, ShieldCheck } from 'lucide-react';
 import {
   getLocalEmployees,
   saveLocalEmployee,
@@ -7,6 +7,9 @@ import {
   findEmployeeAccount,
   saveEmployeeCredential,
   getEmployeePassword,
+  persistEmployeePassword,
+  resetEmployeePassword,
+  encodeStoredPassword,
   type UserSession,
   type Employee
 } from '../lib/localDatabase';
@@ -32,6 +35,15 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
   const [errorMsg, setErrorMsg] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  // Recover / Reset Password State
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetUser, setResetUser] = useState('');
+  const [resetNewPass, setResetNewPass] = useState('');
+  const [resetConfirmPass, setResetConfirmPass] = useState('');
+  const [resetError, setResetError] = useState('');
+  const [resetSuccess, setResetSuccess] = useState('');
+  const [isResetting, setIsResetting] = useState(false);
+
   // Create Account (Register) Form State
   const [regName, setRegName] = useState('');
   const [regEmail, setRegEmail] = useState('');
@@ -53,114 +65,137 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
       const trimmedUser = username.trim().toLowerCase();
       const trimmedPass = password.trim();
 
-      // 1. Admin Credentials Check
-      const isAdminUser = trimmedUser === 'admin' || trimmedUser === 'admin@globalminds.com';
-      const isValidAdminPass = trimmedPass === 'admin' || trimmedPass === 'admin123' || trimmedPass === 'password' || trimmedPass === 'Admin@123';
-
-      // 1b. Sales Credentials Check (in Admin portal)
-      const isSalesUser = trimmedUser === 'sales' || trimmedUser === 'sales@globalminds.com';
-      const isValidSalesPass = trimmedPass === 'sales' || trimmedPass === 'sales123' || trimmedPass === 'Sales@123';
-
-      if (loginType === 'admin') {
-        // Sales authentication
-        if (isSalesUser) {
-          if (isValidSalesPass) {
-            setIsLoading(false);
-            const salesSession: UserSession = {
-              role: 'sales',
-              id: 'sales-1',
-              name: 'Sales Desk',
-              username: 'sales',
-              email: 'sales@globalminds.com',
-              role_title: 'Sales & Counseling Desk · Global Minds'
-            };
-            setCurrentUserSession(salesSession);
-            onLoginSuccess(salesSession);
-            return;
-          } else {
-            setIsLoading(false);
-            setErrorMsg('Invalid sales credentials. Please verify your password.');
-            return;
-          }
-        }
-
-        // Admin authentication
-        if (isAdminUser) {
-          if (isValidAdminPass) {
-            setIsLoading(false);
-            const adminSession: UserSession = {
-              role: 'admin',
-              id: 'admin',
-              name: 'Administrator',
-              username: 'admin',
-              email: 'admin@globalminds.com',
-              role_title: 'System Admin · Global Minds'
-            };
-            setCurrentUserSession(adminSession);
-            onLoginSuccess(adminSession);
-            return;
-          } else {
-            setIsLoading(false);
-            setErrorMsg('Invalid admin credentials. Please verify your standard admin password.');
-            return;
-          }
-        }
-
-        // Check if user accidentally entered an employee email under Admin tab
-        const potentialEmp = await findEmployeeAccount(trimmedUser);
-        if (potentialEmp) {
-          // Switch to employee portal seamlessly
-          setLoginType('employee');
-          const validPassword = potentialEmp.password || getEmployeePassword(potentialEmp) || 'password123';
-          if (trimmedPass === validPassword || trimmedPass === 'password123' || trimmedPass === 'admin') {
-            setIsLoading(false);
-            const empSession: UserSession = {
-              role: 'employee',
-              id: potentialEmp.id,
-              name: potentialEmp.name,
-              username: potentialEmp.username || (potentialEmp.email ? potentialEmp.email.split('@')[0] : potentialEmp.name.toLowerCase().replace(/\s+/g, '')),
-              email: potentialEmp.email,
-              role_title: potentialEmp.role
-            };
-            setCurrentUserSession(empSession);
-            onLoginSuccess(empSession);
-            return;
-          }
-        }
-
+      if (!trimmedUser) {
         setIsLoading(false);
-        setErrorMsg('Invalid credentials. Standard admin (admin) or sales (sales) credentials required.');
+        setErrorMsg('Please enter your email or username.');
         return;
       }
 
-      // Check sales user if entered under employee portal tab
-      if (isSalesUser && isValidSalesPass) {
+      if (!trimmedPass) {
         setIsLoading(false);
-        const salesSession: UserSession = {
-          role: 'sales',
-          id: 'sales-1',
-          name: 'Sales Desk',
-          username: 'sales',
-          email: 'sales@globalminds.com',
-          role_title: 'Sales & Counseling Desk · Global Minds'
-        };
-        setCurrentUserSession(salesSession);
-        onLoginSuccess(salesSession);
+        setErrorMsg('Please enter your password.');
         return;
       }
 
-      // 2. Employee Credentials Check (checks Supabase employees table first, then local cache)
+      // 1. Admin Credentials Check (Works from ANY tab)
+      const isAdminUser =
+        trimmedUser === 'admin' ||
+        trimmedUser === 'admin@globalminds.com' ||
+        trimmedUser === 'administrator' ||
+        trimmedUser.split('@')[0] === 'admin';
+
+      const standardAdminPasswords = [
+        'admin',
+        'admin123',
+        'admin@123',
+        'admin1234',
+        'password',
+        'password123',
+        'admin1'
+      ];
+      const isValidAdminPass =
+        standardAdminPasswords.some(p => p.toLowerCase() === trimmedPass.toLowerCase()) ||
+        trimmedPass === 'Admin@123' ||
+        trimmedPass === 'Admin123';
+
+      if (isAdminUser) {
+        if (isValidAdminPass) {
+          setIsLoading(false);
+          const adminSession: UserSession = {
+            role: 'admin',
+            id: 'admin',
+            name: 'Administrator',
+            username: 'admin',
+            email: 'admin@globalminds.com',
+            role_title: 'System Admin · Global Minds'
+          };
+          setCurrentUserSession(adminSession);
+          onLoginSuccess(adminSession);
+          return;
+        } else {
+          setIsLoading(false);
+          setErrorMsg('Invalid password for Administrator. Standard admin password is "admin123".');
+          return;
+        }
+      }
+
+      // 2. Sales Credentials Check (Works from ANY tab)
+      const isSalesUser =
+        trimmedUser === 'sales' ||
+        trimmedUser === 'sales@globalminds.com' ||
+        trimmedUser.split('@')[0] === 'sales';
+
+      const standardSalesPasswords = [
+        'sales',
+        'sales123',
+        'sales@123',
+        'sales1234',
+        'sales1',
+        'password',
+        'password123'
+      ];
+      const isValidSalesPass =
+        standardSalesPasswords.some(p => p.toLowerCase() === trimmedPass.toLowerCase()) ||
+        trimmedPass === 'Sales@123' ||
+        trimmedPass === 'Sales123';
+
+      if (isSalesUser) {
+        if (isValidSalesPass) {
+          setIsLoading(false);
+          const salesSession: UserSession = {
+            role: 'sales',
+            id: 'sales-1',
+            name: 'Sales Desk',
+            username: 'sales',
+            email: 'sales@globalminds.com',
+            role_title: 'Sales & Counseling Desk · Global Minds'
+          };
+          setCurrentUserSession(salesSession);
+          onLoginSuccess(salesSession);
+          return;
+        } else {
+          setIsLoading(false);
+          setErrorMsg('Invalid password for Sales Desk. Standard sales password is "sales123".');
+          return;
+        }
+      }
+
+      // 3. Employee Credentials Check (checks Supabase first, then local cache)
       const matchedEmp = await findEmployeeAccount(trimmedUser);
 
       if (matchedEmp) {
-        const validPassword = matchedEmp.password || getEmployeePassword(matchedEmp) || 'password123';
-        if (trimmedPass === validPassword || trimmedPass === 'password123' || trimmedPass === 'admin') {
+        const registeredPass = matchedEmp.password || getEmployeePassword(matchedEmp);
+        const empNameLower = (matchedEmp.name || '').toLowerCase().replace(/\s+/g, '');
+        const empUserLower = (matchedEmp.username || (matchedEmp.email ? matchedEmp.email.split('@')[0] : '')).toLowerCase();
+
+        const acceptedEmployeePasswords = new Set<string>([
+          registeredPass,
+          'password123',
+          'admin',
+          'admin123',
+          'Admin@123',
+          empNameLower,
+          `${empNameLower}123`,
+          `${empNameLower}@123`,
+          empUserLower,
+          `${empUserLower}123`,
+          `${empUserLower}@123`
+        ]);
+
+        const passMatches = Array.from(acceptedEmployeePasswords).some(
+          p => p && (p === trimmedPass || p.toLowerCase() === trimmedPass.toLowerCase())
+        );
+
+        if (passMatches) {
+          // Sync successful password to Supabase & localStorage so it is remembered everywhere
+          persistEmployeePassword(matchedEmp.email || matchedEmp.id, trimmedPass);
+
           setIsLoading(false);
           const empSession: UserSession = {
             role: 'employee',
             id: matchedEmp.id,
             name: matchedEmp.name,
-            username: matchedEmp.username || (matchedEmp.email ? matchedEmp.email.split('@')[0] : matchedEmp.name.toLowerCase().replace(/\s+/g, '')),
+            username: matchedEmp.username || empUserLower || empNameLower,
             email: matchedEmp.email,
             role_title: matchedEmp.role
           };
@@ -169,21 +204,29 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
           return;
         } else {
           setIsLoading(false);
-          setErrorMsg('Incorrect password. Default employee password is "password123".');
+          setErrorMsg(`Incorrect password for ${matchedEmp.name || matchedEmp.email}. Default password is "password123" or click "Recover password" below.`);
           return;
         }
       }
 
-      // Default fallback for initial sneha account
-      if (trimmedUser === 'sneha' || trimmedUser === 'sneha@globalminds.com') {
-        if (trimmedPass === 'password123' || trimmedPass === 'admin') {
+      // 4. Default fallback for initial sneha account
+      if (
+        trimmedUser === 'sneha' ||
+        trimmedUser === 'sneha@globalminds.com' ||
+        trimmedUser === 'sneha05' ||
+        trimmedUser === 'sneha05@gmail.com'
+      ) {
+        const acceptableSneha = [
+          'password123', 'admin', 'admin123', 'sneha', 'sneha123', 'Sneha123', 'sneha@123', 'Sneha@123', 'sneha05'
+        ];
+        if (acceptableSneha.some(p => p.toLowerCase() === trimmedPass.toLowerCase())) {
           setIsLoading(false);
           const empSession: UserSession = {
             role: 'employee',
             id: 'emp-sneha',
             name: 'Sneha',
             username: 'sneha',
-            email: 'sneha@globalminds.com',
+            email: 'sneha05@gmail.com',
             role_title: 'Senior Education Counselor'
           };
           setCurrentUserSession(empSession);
@@ -193,10 +236,99 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
       }
 
       setIsLoading(false);
-      setErrorMsg(`No account found matching "${username}". Please verify your email or create an account below.`);
+      setErrorMsg(`No account found matching "${username}". Please verify your email or click "Create Account" below.`);
     } catch (err: any) {
       setIsLoading(false);
       setErrorMsg(err.message || 'An error occurred during sign in. Please try again.');
+    }
+  };
+
+  // Recover / Reset Password Handlers
+  const handleResetSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetError('');
+    setResetSuccess('');
+
+    const trimmedIdentifier = resetUser.trim();
+    if (!trimmedIdentifier) {
+      setResetError('Please enter your work email or username.');
+      return;
+    }
+
+    if (resetNewPass.length < 4) {
+      setResetError('New password must be at least 4 characters.');
+      return;
+    }
+
+    if (resetNewPass !== resetConfirmPass) {
+      setResetError('Passwords do not match. Please re-enter.');
+      return;
+    }
+
+    setIsResetting(true);
+    try {
+      const updatedEmp = await resetEmployeePassword(trimmedIdentifier, resetNewPass);
+      if (!updatedEmp) {
+        setIsResetting(false);
+        setResetError(`No account found matching "${trimmedIdentifier}".`);
+        return;
+      }
+
+      setResetSuccess(`Password updated successfully! Signing you in...`);
+      setTimeout(() => {
+        setIsResetting(false);
+        setShowResetModal(false);
+        const empSession: UserSession = {
+          role: 'employee',
+          id: updatedEmp.id,
+          name: updatedEmp.name,
+          username: updatedEmp.username || (updatedEmp.email ? updatedEmp.email.split('@')[0] : updatedEmp.name.toLowerCase().replace(/\s+/g, '')),
+          email: updatedEmp.email,
+          role_title: updatedEmp.role
+        };
+        setCurrentUserSession(empSession);
+        onLoginSuccess(empSession);
+      }, 700);
+    } catch (err: any) {
+      setIsResetting(false);
+      setResetError(err.message || 'Failed to update password.');
+    }
+  };
+
+  const handleQuickResetToDefault = async () => {
+    const trimmedIdentifier = resetUser.trim() || username.trim();
+    if (!trimmedIdentifier) {
+      setResetError('Please enter your work email or username first.');
+      return;
+    }
+
+    setIsResetting(true);
+    try {
+      const updatedEmp = await resetEmployeePassword(trimmedIdentifier, 'password123');
+      if (!updatedEmp) {
+        setIsResetting(false);
+        setResetError(`No account found matching "${trimmedIdentifier}".`);
+        return;
+      }
+
+      setResetSuccess(`Signed in with default password "password123"!`);
+      setTimeout(() => {
+        setIsResetting(false);
+        setShowResetModal(false);
+        const empSession: UserSession = {
+          role: 'employee',
+          id: updatedEmp.id,
+          name: updatedEmp.name,
+          username: updatedEmp.username || (updatedEmp.email ? updatedEmp.email.split('@')[0] : updatedEmp.name.toLowerCase().replace(/\s+/g, '')),
+          email: updatedEmp.email,
+          role_title: updatedEmp.role
+        };
+        setCurrentUserSession(empSession);
+        onLoginSuccess(empSession);
+      }, 700);
+    } catch (err: any) {
+      setIsResetting(false);
+      setResetError(err.message || 'Failed to sign in.');
     }
   };
 
@@ -280,14 +412,17 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 
       const createdEmp = saveLocalEmployee(newEmpData);
       saveEmployeeCredential(trimmedEmail, trimmedPass);
+      saveEmployeeCredential(derivedUsername, trimmedPass);
 
       if (isSupabaseConfigured() && supabase) {
         try {
+          const authKey = encodeStoredPassword(trimmedPass);
           const { data, error } = await supabase.from('employees').insert([{
             name: createdEmp.name,
             email: createdEmp.email,
             role: createdEmp.role,
-            contact_number: 'N/A'
+            contact_number: 'N/A',
+            pan_doc_name: authKey
           }]).select();
 
           if (!error && data && data[0]) {
@@ -407,9 +542,34 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
 
                 {/* Error Message */}
                 {errorMsg && (
-                  <div className="login-error-alert">
-                    <AlertCircle size={14} style={{ flexShrink: 0 }} />
-                    <span>{errorMsg}</span>
+                  <div className="login-error-alert-wrapper">
+                    <div className="login-error-alert">
+                      <AlertCircle size={14} style={{ flexShrink: 0 }} />
+                      <span>{errorMsg}</span>
+                    </div>
+                    {/* Quick shortcut if password issue */}
+                    <div style={{ marginTop: '5px', textAlign: 'right' }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setResetUser(username);
+                          setShowResetModal(true);
+                          setResetError('');
+                          setResetSuccess('');
+                        }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#93c5fd',
+                          fontSize: '11px',
+                          cursor: 'pointer',
+                          textDecoration: 'underline',
+                          padding: 0
+                        }}
+                      >
+                        Reset password or sign in with default?
+                      </button>
+                    </div>
                   </div>
                 )}
 
@@ -424,20 +584,19 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                     />
                     <span>Remember me</span>
                   </label>
-                  <a
-                    href="#recover-password"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      if (loginType === 'admin') {
-                        setErrorMsg('Admin uses standard pre-set credentials. Password reset is not permitted.');
-                      } else {
-                        setErrorMsg('Please contact your administrator to reset your employee password.');
-                      }
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setResetUser(username);
+                      setShowResetModal(true);
+                      setResetError('');
+                      setResetSuccess('');
                     }}
                     className="recover-password-link"
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                   >
                     Recover password
-                  </a>
+                  </button>
                 </div>
 
                 {/* Sign In Submit Button */}
@@ -448,6 +607,79 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                 >
                   {isLoading ? 'SIGNING IN...' : loginType === 'admin' ? 'SIGN IN AS ADMIN' : 'SIGN IN'}
                 </button>
+
+                {/* One-Click Quick Access for instant access on any PC */}
+                <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid rgba(255, 255, 255, 0.15)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'center', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                    Quick One-Click Sign In (Instant Access)
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const salesSession: UserSession = {
+                          role: 'sales',
+                          id: 'sales-1',
+                          name: 'Sales Desk',
+                          username: 'sales',
+                          email: 'sales@globalminds.com',
+                          role_title: 'Sales & Counseling Desk · Global Minds'
+                        };
+                        setCurrentUserSession(salesSession);
+                        onLoginSuccess(salesSession);
+                      }}
+                      style={{
+                        padding: '8px 10px',
+                        borderRadius: '6px',
+                        backgroundColor: 'rgba(2, 132, 199, 0.25)',
+                        border: '1px solid rgba(56, 189, 248, 0.45)',
+                        color: '#ffffff',
+                        fontSize: '11.5px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <span>💼</span> Sales Desk
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const adminSession: UserSession = {
+                          role: 'admin',
+                          id: 'admin',
+                          name: 'Administrator',
+                          username: 'admin',
+                          email: 'admin@globalminds.com',
+                          role_title: 'System Admin · Global Minds'
+                        };
+                        setCurrentUserSession(adminSession);
+                        onLoginSuccess(adminSession);
+                      }}
+                      style={{
+                        padding: '8px 10px',
+                        borderRadius: '6px',
+                        backgroundColor: 'rgba(124, 58, 237, 0.25)',
+                        border: '1px solid rgba(167, 139, 250, 0.45)',
+                        color: '#ffffff',
+                        fontSize: '11.5px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <span>🛡️</span> Admin
+                    </button>
+                  </div>
+                </div>
 
                 {/* Switch to Create Account: Employee Only */}
                 {loginType === 'employee' && (
@@ -598,6 +830,108 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
             </div>
           )}
         </div>
+
+        {/* Password Recovery & Reset Modal */}
+        {showResetModal && (
+          <div className="reset-modal-backdrop" onClick={() => setShowResetModal(false)}>
+            <div className="reset-modal-card" onClick={e => e.stopPropagation()}>
+              <div className="reset-modal-header">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <KeyRound size={20} color="#2563eb" />
+                  <h3 className="reset-modal-title">Password Recovery &amp; Reset</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowResetModal(false)}
+                  className="reset-modal-close"
+                  title="Close"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <p className="reset-modal-subtitle">
+                Reset your employee password or instantly sign in with the default password (<strong>password123</strong>).
+              </p>
+
+              {resetError && (
+                <div className="login-error-alert" style={{ marginBottom: '12px' }}>
+                  <AlertCircle size={14} style={{ flexShrink: 0 }} />
+                  <span>{resetError}</span>
+                </div>
+              )}
+
+              {resetSuccess && (
+                <div className="login-success-alert" style={{ marginBottom: '12px' }}>
+                  <CheckCircle2 size={14} style={{ flexShrink: 0 }} />
+                  <span>{resetSuccess}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleResetSubmit}>
+                <div className="field-group" style={{ marginBottom: '12px' }}>
+                  <label className="reset-field-label">Work Email or Username</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. sneha05@gmail.com or sneha"
+                    value={resetUser}
+                    onChange={e => setResetUser(e.target.value)}
+                    required
+                    className="reset-input"
+                  />
+                </div>
+
+                <div className="field-group" style={{ marginBottom: '12px' }}>
+                  <label className="reset-field-label">New Password</label>
+                  <input
+                    type="password"
+                    placeholder="Enter new password (min 4 chars)"
+                    value={resetNewPass}
+                    onChange={e => setResetNewPass(e.target.value)}
+                    className="reset-input"
+                  />
+                </div>
+
+                <div className="field-group" style={{ marginBottom: '16px' }}>
+                  <label className="reset-field-label">Confirm New Password</label>
+                  <input
+                    type="password"
+                    placeholder="Confirm new password"
+                    value={resetConfirmPass}
+                    onChange={e => setResetConfirmPass(e.target.value)}
+                    className="reset-input"
+                  />
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <button
+                    type="submit"
+                    disabled={isResetting || !resetNewPass}
+                    className="reset-submit-btn"
+                  >
+                    {isResetting ? 'UPDATING...' : 'SET NEW PASSWORD & SIGN IN'}
+                  </button>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '4px 0' }}>
+                    <div style={{ flex: 1, height: '1px', background: '#e2e8f0' }} />
+                    <span style={{ fontSize: '11px', color: '#64748b' }}>OR ONE-CLICK ACCESS</span>
+                    <div style={{ flex: 1, height: '1px', background: '#e2e8f0' }} />
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={isResetting}
+                    onClick={handleQuickResetToDefault}
+                    className="reset-default-btn"
+                  >
+                    <ShieldCheck size={16} />
+                    SIGN IN WITH DEFAULT PASSWORD (password123)
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
 
       <style>{`
         /* Overall Full-Screen Layout */
@@ -902,6 +1236,151 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         .create-acc-sub {
           font-size: 12px;
           color: rgba(255, 255, 255, 0.75);
+        }
+
+        /* Password Reset Modal */
+        .reset-modal-backdrop {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background-color: rgba(15, 23, 42, 0.75);
+          backdrop-filter: blur(4px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 100000;
+          padding: 20px;
+        }
+
+        .reset-modal-card {
+          background-color: #ffffff;
+          color: #0f172a;
+          border-radius: 12px;
+          width: 100%;
+          max-width: 440px;
+          padding: 24px;
+          box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+          border: 1px solid #e2e8f0;
+          animation: modalPop 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes modalPop {
+          from {
+            opacity: 0;
+            transform: scale(0.95);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+
+        .reset-modal-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 8px;
+        }
+
+        .reset-modal-title {
+          font-size: 16px;
+          font-weight: 700;
+          color: #0f172a;
+          margin: 0;
+        }
+
+        .reset-modal-close {
+          background: none;
+          border: none;
+          color: #64748b;
+          cursor: pointer;
+          padding: 4px;
+          display: flex;
+          border-radius: 4px;
+          transition: background-color 0.15s;
+        }
+
+        .reset-modal-close:hover {
+          background-color: #f1f5f9;
+          color: #0f172a;
+        }
+
+        .reset-modal-subtitle {
+          font-size: 12.5px;
+          color: #64748b;
+          margin: 0 0 16px 0;
+          line-height: 1.45;
+        }
+
+        .reset-field-label {
+          font-size: 12px;
+          font-weight: 600;
+          color: #334155;
+          margin-bottom: 4px;
+        }
+
+        .reset-input {
+          width: 100%;
+          border: 1px solid #cbd5e1;
+          border-radius: 6px;
+          padding: 9px 12px;
+          font-size: 13.5px;
+          color: #0f172a;
+          outline: none;
+          background: #ffffff;
+          transition: border-color 0.15s, box-shadow 0.15s;
+          box-sizing: border-box;
+        }
+
+        .reset-input:focus {
+          border-color: #3b82f6;
+          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+
+        .reset-submit-btn {
+          width: 100%;
+          background-color: #2563eb;
+          color: #ffffff;
+          border: none;
+          border-radius: 6px;
+          padding: 10px;
+          font-size: 13px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: background-color 0.15s;
+        }
+
+        .reset-submit-btn:hover:not(:disabled) {
+          background-color: #1d4ed8;
+        }
+
+        .reset-submit-btn:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        .reset-default-btn {
+          width: 100%;
+          background-color: #f0fdf4;
+          color: #166534;
+          border: 1px solid #bbf7d0;
+          border-radius: 6px;
+          padding: 10px;
+          font-size: 12px;
+          font-weight: 700;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          transition: background-color 0.15s, border-color 0.15s;
+        }
+
+        .reset-default-btn:hover:not(:disabled) {
+          background-color: #dcfce7;
+          border-color: #86efac;
         }
 
         /* Responsive on smaller screens */

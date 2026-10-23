@@ -34,18 +34,90 @@ export interface Enquiry {
 }
 
 export type NoteStage =
+  | 'Cold Email Outreach'
+  | 'Lead Research'
+  | 'Initial Call'
+  | 'Requirement Identification'
+  | 'Requirement-Based Email Sent'
+  | 'Partnership Proposal'
+  | 'Partnership Conversation'
+  | 'Partnership Followup'
+  | 'Customer Onboarding'
   | 'Target Customer'
   | 'Lead Generation'
   | 'Demo'
   | 'Requirement Gathering'
   | 'Estimation'
   | 'Proposal'
-  | 'Customer Onboarding'
   | 'Reached Out'
   | 'Pipeline'
   | 'Converted'
   | 'To Be Follow Up'
   | 'Delivery Due';
+
+export type SalesWorkstreamCategory =
+  | 'Meeting'
+  | 'Team discussion'
+  | 'Kt'
+  | 'Cold reach'
+  | 'Call'
+  | 'Portfolio'
+  | 'Cold Emails'
+  | 'Partnership'
+  | 'Research';
+
+export const WORKSTREAM_CATEGORIES: {
+  value: SalesWorkstreamCategory;
+  label: string;
+  icon: string;
+  color: string;
+  bg: string;
+  border: string;
+}[] = [
+  { value: 'Meeting', label: 'Meeting', icon: '👥', color: '#0284c7', bg: 'rgba(2, 132, 199, 0.12)', border: 'rgba(2, 132, 199, 0.35)' },
+  { value: 'Team discussion', label: 'Team discussion', icon: '🗣️', color: '#7c3aed', bg: 'rgba(124, 58, 237, 0.12)', border: 'rgba(124, 58, 237, 0.35)' },
+  { value: 'Kt', label: 'Kt', icon: '💡', color: '#d97706', bg: 'rgba(217, 119, 6, 0.12)', border: 'rgba(217, 119, 6, 0.35)' },
+  { value: 'Cold reach', label: 'Cold reach', icon: '🎯', color: '#059669', bg: 'rgba(5, 150, 105, 0.12)', border: 'rgba(5, 150, 105, 0.35)' },
+  { value: 'Call', label: 'Call', icon: '📞', color: '#0d9488', bg: 'rgba(13, 148, 136, 0.12)', border: 'rgba(13, 148, 136, 0.35)' },
+  { value: 'Portfolio', label: 'Portfolio', icon: '💼', color: '#e11d48', bg: 'rgba(225, 29, 72, 0.12)', border: 'rgba(225, 29, 72, 0.35)' },
+  { value: 'Cold Emails', label: 'Cold Emails', icon: '✉️', color: '#1d4ed8', bg: 'rgba(29, 78, 216, 0.12)', border: 'rgba(29, 78, 216, 0.35)' },
+  { value: 'Partnership', label: 'Partnership', icon: '🤝', color: '#9333ea', bg: 'rgba(147, 51, 234, 0.12)', border: 'rgba(147, 51, 234, 0.35)' },
+  { value: 'Research', label: 'Research', icon: '🔍', color: '#b45309', bg: 'rgba(180, 83, 9, 0.12)', border: 'rgba(180, 83, 9, 0.35)' }
+];
+
+export interface Note {
+  id: string;
+  content: string;
+  timestamp: string;
+  role?: 'admin' | 'sales' | string;
+  stage?: NoteStage | string;
+  action_item?: string;
+  is_completed?: boolean;
+  created_by?: string;
+  reminderDate?: string;
+  is_pinned?: boolean;
+  category?: SalesWorkstreamCategory | string;
+}
+
+export const resolveNoteCategories = (note: Note): SalesWorkstreamCategory[] => {
+  if (note.category && note.category !== 'null' && note.category !== 'None' && String(note.category).trim() !== '') {
+    const matched = WORKSTREAM_CATEGORIES.find(c => c.value.toLowerCase() === String(note.category).toLowerCase());
+    if (matched) return [matched.value];
+    return [note.category as SalesWorkstreamCategory];
+  }
+  const rawAction = (note.action_item || '').trim();
+  if (rawAction.toLowerCase().startsWith('workstream:')) {
+    const catName = rawAction.replace(/workstream:/i, '').trim();
+    const matched = WORKSTREAM_CATEGORIES.find(c => c.value.toLowerCase() === catName.toLowerCase());
+    if (matched) return [matched.value];
+    return [catName as SalesWorkstreamCategory];
+  }
+  if (rawAction) {
+    const matched = WORKSTREAM_CATEGORIES.find(c => c.value.toLowerCase() === rawAction.toLowerCase());
+    if (matched) return [matched.value];
+  }
+  return [];
+};
 
 export const NOTE_STAGES: NoteStage[] = [
   'Target Customer',
@@ -67,19 +139,56 @@ export const SALES_FLOW_STAGES: NoteStage[] = [
   'Customer Onboarding'
 ];
 
-export const resolveNoteStage = (n: Note): NoteStage => {
-  if (n.stage && NOTE_STAGES.includes(n.stage as NoteStage)) {
-    return n.stage as NoteStage;
+export const resolveNoteStage = (n: Note): NoteStage | null => {
+  const rawStage = (n.stage || '').trim();
+  if (rawStage && rawStage !== 'null' && rawStage !== 'None') {
+    const matchedDirect = NOTE_STAGES.find(s => s.toLowerCase() === rawStage.toLowerCase());
+    if (matchedDirect) return matchedDirect;
+
+    const lower = rawStage.toLowerCase();
+    if (lower.includes('target customer') || lower.includes('target')) return 'Target Customer';
+    if (lower.includes('lead generation') || lower.includes('lead gen') || lower.includes('lead research') || lower.includes('pipeline') || lower.includes('cold email') || lower.includes('outreach') || lower.includes('reached out')) return 'Lead Generation';
+    if (lower.includes('demo') || lower.includes('initial call')) return 'Demo';
+    if (lower.includes('requirement gathering') || lower.includes('requirement identification') || lower.includes('gathering')) return 'Requirement Gathering';
+    if (lower.includes('estimation') || lower.includes('quote') || lower.includes('requirement-based') || lower.includes('requirement based')) return 'Estimation';
+    if (lower.includes('proposal') || lower.includes('pitch') || lower.includes('partnership proposal') || lower.includes('partnership conversation')) return 'Proposal';
+    if (lower.includes('onboarding') || lower.includes('customer onboarding') || lower.includes('converted') || lower.includes('followup') || lower.includes('follow-up') || lower.includes('follow up') || lower.includes('delivery')) return 'Customer Onboarding';
+    return rawStage as NoteStage;
   }
-  const action = (n.stage || n.action_item || '').toLowerCase().trim();
-  if (action.includes('onboard') || action.includes('converted') || action === 'completed') return 'Customer Onboarding';
-  if (action.includes('proposal') || action === 'delivery due') return 'Proposal';
-  if (action.includes('estimation') || action.includes('fee')) return 'Estimation';
-  if (action.includes('requirement') || action === 'pipeline') return 'Requirement Gathering';
-  if (action.includes('demo') || action === 'to be follow up') return 'Demo';
-  if (action.includes('generation') || action === 'reached out') return 'Lead Generation';
-  if (action.includes('target')) return 'Target Customer';
-  return 'Lead Generation';
+
+  // Fallback to action_item if stage is not set and action_item is not a workstream
+  const rawAction = (n.action_item || '').trim();
+  if (rawAction && !rawAction.toLowerCase().startsWith('workstream:') && !WORKSTREAM_CATEGORIES.some(c => c.value.toLowerCase() === rawAction.toLowerCase())) {
+    const matchedDirect = NOTE_STAGES.find(s => s.toLowerCase() === rawAction.toLowerCase());
+    if (matchedDirect) return matchedDirect;
+
+    const lower = rawAction.toLowerCase();
+    if (lower.includes('target customer') || lower.includes('target')) return 'Target Customer';
+    if (lower.includes('lead generation') || lower.includes('lead gen') || lower.includes('lead research') || lower.includes('pipeline') || lower.includes('cold email') || lower.includes('outreach') || lower.includes('reached out')) return 'Lead Generation';
+    if (lower.includes('demo') || lower.includes('initial call')) return 'Demo';
+    if (lower.includes('requirement gathering') || lower.includes('requirement identification') || lower.includes('gathering')) return 'Requirement Gathering';
+    if (lower.includes('estimation') || lower.includes('quote') || lower.includes('requirement-based') || lower.includes('requirement based')) return 'Estimation';
+    if (lower.includes('proposal') || lower.includes('pitch') || lower.includes('partnership proposal') || lower.includes('partnership conversation')) return 'Proposal';
+    if (lower.includes('onboarding') || lower.includes('customer onboarding') || lower.includes('converted') || lower.includes('followup') || lower.includes('follow-up') || lower.includes('follow up') || lower.includes('delivery')) return 'Customer Onboarding';
+  }
+
+  return null;
+};
+
+export const normalizeSalesNote = (note: Note): Note => {
+  const categories = resolveNoteCategories(note);
+  const resolvedCategory = (note.category && note.category !== 'null' && note.category !== 'None')
+    ? (note.category as SalesWorkstreamCategory)
+    : (categories[0] || undefined);
+  const resolvedStage = resolveNoteStage(note) || (note.stage && note.stage !== 'null' && note.stage !== 'None' ? (note.stage as NoteStage) : undefined);
+  const resolvedActionItem = note.action_item || (resolvedCategory ? `Workstream: ${resolvedCategory}` : (resolvedStage || undefined));
+
+  return {
+    ...note,
+    category: resolvedCategory,
+    stage: resolvedStage,
+    action_item: resolvedActionItem
+  };
 };
 
 export interface UserSession {
@@ -406,6 +515,14 @@ export function saveLocalCategory(name: string): Category {
   };
   categories.push(newCat);
   setStorageItem('categories', categories);
+
+  // Directly persist to Supabase DB
+  if (isSupabaseConfigured() && supabase) {
+    supabase.from('categories').insert([{ name }]).then(res => {
+      if (res.error) console.warn('Supabase saveCategory sync error:', res.error);
+    });
+  }
+
   return newCat;
 }
 
@@ -426,6 +543,17 @@ export function saveLocalCourse(courseData: Omit<Course, 'id' | 'created_at'> & 
         id: courseData.id
       };
       setStorageItem('courses', courses);
+
+      if (isSupabaseConfigured() && supabase) {
+        supabase.from('courses').update({
+          name: courseData.name,
+          fee: courseData.fee,
+          description: courseData.description,
+          active: courseData.active,
+          category_id: courseData.category_id
+        }).eq('id', courseData.id).then();
+      }
+
       return courses[index];
     }
   }
@@ -438,6 +566,17 @@ export function saveLocalCourse(courseData: Omit<Course, 'id' | 'created_at'> & 
   };
   courses.push(newCourse);
   setStorageItem('courses', courses);
+
+  if (isSupabaseConfigured() && supabase) {
+    supabase.from('courses').insert([{
+      name: courseData.name,
+      fee: courseData.fee,
+      description: courseData.description,
+      active: courseData.active,
+      category_id: courseData.category_id
+    }]).then();
+  }
+
   return newCourse;
 }
 
@@ -445,11 +584,14 @@ export function deleteLocalCourse(id: string): void {
   const courses = getLocalCourses();
   const filtered = courses.filter(c => c.id !== id);
   setStorageItem('courses', filtered);
+
+  if (isSupabaseConfigured() && supabase) {
+    supabase.from('courses').delete().eq('id', id).then();
+  }
 }
 
 export function getLocalEnquiries(): Enquiry[] {
   const items = getStorageItem<Enquiry[]>('enquiries', DEFAULT_ENQUIRIES);
-  // If user only had the 2 initial seed items, seamlessly enrich with multi-month data
   if (items && items.length <= 2 && items.every(i => i.id === 'enq-1' || i.id === 'enq-2')) {
     setStorageItem('enquiries', DEFAULT_ENQUIRIES);
     return DEFAULT_ENQUIRIES;
@@ -461,7 +603,6 @@ export function addLocalEnquiry(enquiry: Omit<Enquiry, 'id' | 'created_at' | 'up
   const enquiries = getLocalEnquiries();
   const now = new Date();
   
-  // reminder date is 2 days from now
   const nextReminder = new Date();
   nextReminder.setDate(now.getDate() + 2);
 
@@ -476,6 +617,25 @@ export function addLocalEnquiry(enquiry: Omit<Enquiry, 'id' | 'created_at' | 'up
 
   enquiries.unshift(newEnq);
   setStorageItem('enquiries', enquiries);
+
+  if (isSupabaseConfigured() && supabase) {
+    supabase.from('enquiries').insert([{
+      contact_name: enquiry.contact_name,
+      contact_phone: enquiry.contact_phone,
+      category_id: enquiry.category_id,
+      course_id: enquiry.course_id,
+      fee_shared: enquiry.fee_shared,
+      payment: enquiry.payment || 'Pending',
+      notes: enquiry.notes,
+      interested: enquiry.interested,
+      follow_up_done: enquiry.follow_up_done,
+      can_follow_up: enquiry.can_follow_up,
+      next_reminder_at: nextReminder.toISOString()
+    }]).then(res => {
+      if (res.error) console.warn('Supabase addEnquiry sync error:', res.error);
+    });
+  }
+
   return newEnq;
 }
 
@@ -495,6 +655,13 @@ export function updateLocalEnquiry(id: string, updates: Partial<Enquiry>): Enqui
 
   enquiries[index] = updated;
   setStorageItem('enquiries', enquiries);
+
+  if (isSupabaseConfigured() && supabase) {
+    supabase.from('enquiries').update(updates).eq('id', id).then(res => {
+      if (res.error) console.warn('Supabase updateEnquiry sync error:', res.error);
+    });
+  }
+
   return updated;
 }
 
@@ -502,6 +669,12 @@ export function deleteLocalEnquiry(id: string): void {
   const enquiries = getLocalEnquiries();
   const filtered = enquiries.filter(e => e.id !== id);
   setStorageItem('enquiries', filtered);
+
+  if (isSupabaseConfigured() && supabase) {
+    supabase.from('enquiries').delete().eq('id', id).then(res => {
+      if (res.error) console.warn('Supabase deleteEnquiry sync error:', res.error);
+    });
+  }
 }
 
 export function resetLocalDatabase(): void {
@@ -514,10 +687,14 @@ export function resetLocalDatabase(): void {
   localStorage.removeItem(STORAGE_PREFIX + 'sales_notes_v5');
   localStorage.removeItem(STORAGE_PREFIX + 'admin_notes_v6');
   localStorage.removeItem(STORAGE_PREFIX + 'sales_notes_v6');
+  localStorage.removeItem(STORAGE_PREFIX + 'admin_notes_v7');
+  localStorage.removeItem(STORAGE_PREFIX + 'sales_notes_v7');
   localStorage.removeItem(STORAGE_PREFIX + 'todolist_admin_notes_initialized_v5');
   localStorage.removeItem(STORAGE_PREFIX + 'todolist_sales_notes_initialized_v5');
   localStorage.removeItem(STORAGE_PREFIX + 'todolist_admin_notes_initialized_v6');
   localStorage.removeItem(STORAGE_PREFIX + 'todolist_sales_notes_initialized_v6');
+  localStorage.removeItem(STORAGE_PREFIX + 'todolist_admin_notes_initialized_v7');
+  localStorage.removeItem(STORAGE_PREFIX + 'todolist_sales_notes_initialized_v7');
   localStorage.removeItem(STORAGE_PREFIX + 'todolist_notes_initialized_v2');
   localStorage.removeItem(STORAGE_PREFIX + 'todolist_sales_notes_initialized_v2');
 }
@@ -625,110 +802,388 @@ export const DEFAULT_NOTES: Note[] = [
 ];
 
 // ----------------------------------------------------
-// DEFAULT SALES NOTES (Client sales & counseling only - NO course details)
+// ----------------------------------------------------
+// DEFAULT SALES NOTES (Client sales & counseling ledger)
 // ----------------------------------------------------
 export const DEFAULT_SALES_NOTES: Note[] = [
-  // Reached Out (3)
   {
-    id: 'sales-note-ro-1',
-    content: 'Sales initial outreach: Spoke with prospective client regarding enrollment guidelines and weekend batch availability.',
-    timestamp: new Date(Date.now() - 25 * 60 * 1000).toISOString(),
-    stage: 'Reached Out',
-    action_item: 'Reached Out',
+    id: 'sales-note-20261014-14',
+    content: 'Email Optimization & Verification: Tailored email pitches to address the specific technology needs of each school segment and ensured contact accuracy before dispatch.',
     role: 'sales',
+    stage: 'Requirement-Based Email Sent',
+    action_item: 'Requirement-Based Email Sent',
+    is_completed: false,
     created_by: 'Sales Desk',
-    reminderDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    is_completed: false
+    reminderDate: '2026-10-14',
+    timestamp: '2026-10-14T17:30:00.000Z'
   },
   {
-    id: 'sales-note-ro-2',
-    content: 'Counseling phone call with client regarding program schedule and flexible installment fee options.',
-    timestamp: new Date(Date.now() - 90 * 60 * 1000).toISOString(),
-    stage: 'Reached Out',
-    action_item: 'Reached Out',
+    id: 'sales-note-20261014-13',
+    content: 'Madurai Outreach: Sent targeted cold outreach emails to 15 schools in Madurai, highlighting Admissions CRM and automated fee management solutions.',
     role: 'sales',
+    stage: 'Lead Generation',
+    action_item: 'Lead Generation',
+    is_completed: false,
     created_by: 'Sales Desk',
-    reminderDate: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString().split('T')[0],
-    is_completed: false
+    reminderDate: '2026-10-14',
+    timestamp: '2026-10-14T17:00:00.000Z'
   },
   {
-    id: 'sales-note-ro-3',
-    content: 'Contacted inbound prospective applicant. Sent program brochure and career counseling overview via WhatsApp.',
-    timestamp: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
-    stage: 'Reached Out',
-    action_item: 'Reached Out',
+    id: 'sales-note-20261014-12',
+    content: 'Chennai Outreach: Dispatched targeted cold outreach emails to 25 preschools in Chennai, focusing on website redesign and online enquiry tracking solutions.',
     role: 'sales',
+    stage: 'Lead Generation',
+    action_item: 'Lead Generation',
+    is_completed: false,
     created_by: 'Sales Desk',
-    is_completed: false
-  },
-
-  // Pipeline (2)
-  {
-    id: 'sales-note-pipe-1',
-    content: 'Client consultation meeting booked for Saturday afternoon. Client evaluating payment installments.',
-    timestamp: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
-    stage: 'Pipeline',
-    action_item: 'Pipeline',
-    role: 'sales',
-    created_by: 'Sales Desk',
-    reminderDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    is_completed: false
+    reminderDate: '2026-10-14',
+    timestamp: '2026-10-14T16:30:00.000Z'
   },
   {
-    id: 'sales-note-pipe-2',
-    content: 'Corporate team inquiry (8 candidates) for workforce training. Custom training proposal shared.',
-    timestamp: new Date(Date.now() - 16 * 60 * 60 * 1000).toISOString(),
-    stage: 'Pipeline',
-    action_item: 'Pipeline',
+    id: 'sales-note-20261014-11',
+    content: 'Email List Validation: Completed pre-validation and deliverability verification of all 40 generated school email IDs to improve inbox deliverability.',
     role: 'sales',
+    stage: 'Lead Generation',
+    action_item: 'Lead Generation',
+    is_completed: false,
     created_by: 'Sales Desk',
-    reminderDate: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString().split('T')[0],
-    is_completed: false
+    reminderDate: '2026-10-14',
+    timestamp: '2026-10-14T16:00:00.000Z'
   },
-
-  // Converted (1)
   {
-    id: 'sales-note-conv-1',
-    content: 'Client enrollment finalized! Registration form received and initial admission fee confirmed.',
-    timestamp: new Date(Date.now() - 28 * 60 * 60 * 1000).toISOString(),
-    stage: 'Converted',
-    action_item: 'Converted',
+    id: 'sales-note-20261014-10',
+    content: 'School Data Research - Madurai: Generated targeted contact email lists for 15 target schools across Madurai using AI-powered search tools.',
     role: 'sales',
+    stage: 'Lead Generation',
+    action_item: 'Lead Generation',
+    is_completed: false,
     created_by: 'Sales Desk',
-    is_completed: true
+    reminderDate: '2026-10-14',
+    timestamp: '2026-10-14T15:30:00.000Z'
   },
-
-  // To Be Follow Up (1) - Overdue reminder to demonstrate overdue alert
   {
-    id: 'sales-note-fup-1',
-    content: 'Candidate requested follow-up call on Monday morning to confirm batch timings with employer.',
-    timestamp: new Date(Date.now() - 34 * 60 * 60 * 1000).toISOString(),
-    stage: 'To Be Follow Up',
-    action_item: 'To Be Follow Up',
+    id: 'sales-note-20261014-09',
+    content: 'School Data Research - Chennai: Generated targeted contact email lists for 25 target schools across Chennai using AI-powered search tools.',
     role: 'sales',
+    stage: 'Lead Generation',
+    action_item: 'Lead Generation',
+    is_completed: false,
     created_by: 'Sales Desk',
-    reminderDate: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    is_completed: false
+    reminderDate: '2026-10-14',
+    timestamp: '2026-10-14T15:00:00.000Z'
   },
-
-  // Delivery Due (1) - Due Today reminder to demonstrate today alert
   {
-    id: 'sales-note-del-1',
-    content: 'Welcome onboarding kit and student portal access credentials dispatch due for new sales enrollee.',
-    timestamp: new Date(Date.now() - 42 * 60 * 60 * 1000).toISOString(),
-    stage: 'Delivery Due',
-    action_item: 'Delivery Due',
+    id: 'sales-note-20261014-08',
+    content: 'ACME Global Outreach: Sent a partnership and business opportunity email to ACME Global, as advised by Arun.',
     role: 'sales',
+    stage: 'Proposal',
+    action_item: 'Proposal',
+    is_completed: false,
     created_by: 'Sales Desk',
-    reminderDate: new Date().toISOString().split('T')[0],
-    is_completed: false
+    reminderDate: '2026-10-14',
+    timestamp: '2026-10-14T14:30:00.000Z'
+  },
+  {
+    id: 'sales-note-20261014-07',
+    content: 'Facebook Community Engagement: Published promotional posts and joined relevant active business networking groups.',
+    role: 'sales',
+    stage: 'Lead Generation',
+    action_item: 'Lead Generation',
+    is_completed: false,
+    created_by: 'Sales Desk',
+    reminderDate: '2026-10-14',
+    timestamp: '2026-10-14T14:00:00.000Z'
+  },
+  {
+    id: 'sales-note-20261014-06',
+    content: 'Facebook Business Setup: Created the company\'s Facebook business page and updated the official profile.',
+    role: 'sales',
+    stage: 'Lead Generation',
+    action_item: 'Lead Generation',
+    is_completed: false,
+    created_by: 'Sales Desk',
+    reminderDate: '2026-10-14',
+    timestamp: '2026-10-14T12:30:00.000Z'
+  },
+  {
+    id: 'sales-note-20261014-05',
+    content: 'Team Coordination: Discussed outreach activities with Hamsalekha and assigned the day\'s outreach tasks.',
+    role: 'sales',
+    stage: 'Requirement Gathering',
+    action_item: 'Requirement Gathering',
+    is_completed: false,
+    created_by: 'Sales Desk',
+    reminderDate: '2026-10-14',
+    timestamp: '2026-10-14T12:00:00.000Z'
+  },
+  {
+    id: 'sales-note-20261014-04',
+    content: 'Business Development: Searched LinkedIn for additional business opportunities and established new professional connections.',
+    role: 'sales',
+    stage: 'Lead Generation',
+    action_item: 'Lead Generation',
+    is_completed: false,
+    created_by: 'Sales Desk',
+    reminderDate: '2026-10-14',
+    timestamp: '2026-10-14T11:15:00.000Z'
+  },
+  {
+    id: 'sales-note-20261014-03',
+    content: 'Website Development Leads: Sent response emails for website development opportunities identified on LinkedIn.',
+    role: 'sales',
+    stage: 'Estimation',
+    action_item: 'Estimation',
+    is_completed: false,
+    created_by: 'Sales Desk',
+    reminderDate: '2026-10-14',
+    timestamp: '2026-10-14T10:30:00.000Z'
+  },
+  {
+    id: 'sales-note-20261014-02',
+    content: 'Upwork Verification: Discussed and clarified Upwork membership verification requirements with the team.',
+    role: 'sales',
+    stage: 'Requirement Gathering',
+    action_item: 'Requirement Gathering',
+    is_completed: false,
+    created_by: 'Sales Desk',
+    reminderDate: '2026-10-14',
+    timestamp: '2026-10-14T10:00:00.000Z'
+  },
+  {
+    id: 'sales-note-20261014-01',
+    content: 'LinkedIn Partnerships: Sent 2 partnership proposal emails to companies identified through LinkedIn.',
+    role: 'sales',
+    stage: 'Proposal',
+    action_item: 'Proposal',
+    is_completed: false,
+    created_by: 'Sales Desk',
+    reminderDate: '2026-10-14',
+    timestamp: '2026-10-14T09:30:00.000Z'
+  },
+  {
+    id: 'sales-note-1',
+    content: 'Researching Linkedin and getting connects and looking for leads. Have showed interest for one job post and replied with our portfolio.',
+    role: 'sales',
+    stage: 'Lead Generation',
+    action_item: 'Lead Generation',
+    is_completed: false,
+    created_by: 'Sales Desk',
+    reminderDate: '2026-10-13',
+    timestamp: '2026-10-13T10:00:00.000Z'
+  },
+  {
+    id: 'sales-note-2',
+    content: 'Profile update in Upwork. Have clarified the issue with suspension is under review as the verification process takes time.',
+    role: 'sales',
+    stage: 'Lead Generation',
+    action_item: 'Lead Generation',
+    is_completed: false,
+    created_by: 'Sales Desk',
+    reminderDate: '2026-10-13',
+    timestamp: '2026-10-13T09:30:00.000Z'
+  },
+  {
+    id: 'sales-note-3',
+    content: 'Handling Upwork account issue',
+    role: 'sales',
+    stage: 'Lead Generation',
+    action_item: 'Lead Generation',
+    is_completed: false,
+    created_by: 'Sales Desk',
+    reminderDate: undefined,
+    timestamp: '2026-10-13T09:00:00.000Z'
+  },
+  {
+    id: 'sales-note-4',
+    content: 'Making Bids in Freelancer for the posted opprtnities.',
+    role: 'sales',
+    stage: 'Lead Generation',
+    action_item: 'Lead Generation',
+    is_completed: false,
+    created_by: 'Sales Desk',
+    reminderDate: undefined,
+    timestamp: '2026-10-13T08:30:00.000Z'
+  },
+  {
+    id: 'sales-note-5',
+    content: 'Priority mails for 15 companies (provided by Ganesh Senthil) has been sent.',
+    role: 'sales',
+    stage: 'Lead Generation',
+    action_item: 'Lead Generation',
+    is_completed: false,
+    created_by: 'Sales Desk',
+    reminderDate: '2026-10-13',
+    timestamp: '2026-10-13T07:30:00.000Z'
+  },
+  {
+    id: 'sales-note-6',
+    content: 'Have made a bid in Freelancer.in for website development project.',
+    role: 'sales',
+    stage: 'Lead Generation',
+    action_item: 'Lead Generation',
+    is_completed: false,
+    created_by: 'Sales Desk',
+    reminderDate: '2026-10-13',
+    timestamp: '2026-10-12T16:00:00.000Z'
+  },
+  {
+    id: 'sales-note-7',
+    content: 'Created a profile in Freelancer site as suggested by Hamsalekha.',
+    role: 'sales',
+    stage: 'Lead Generation',
+    action_item: 'Lead Generation',
+    is_completed: false,
+    created_by: 'Sales Desk',
+    reminderDate: undefined,
+    timestamp: '2026-10-12T14:30:00.000Z'
+  },
+  {
+    id: 'sales-note-8',
+    content: 'KT and Task assigned to Hamsalekha.',
+    role: 'sales',
+    stage: 'Lead Generation',
+    action_item: 'Lead Generation',
+    is_completed: false,
+    created_by: 'Sales Desk',
+    reminderDate: undefined,
+    timestamp: '2026-10-12T12:00:00.000Z'
+  },
+  {
+    id: 'sales-note-9',
+    content: 'Had a Team meeting this morning and discussed the pipeline and action needed items.',
+    role: 'sales',
+    stage: 'Requirement Gathering',
+    action_item: 'Requirement Gathering',
+    is_completed: false,
+    created_by: 'Sales Desk',
+    reminderDate: undefined,
+    timestamp: '2026-10-12T10:00:00.000Z'
+  },
+  {
+    id: 'sales-note-10',
+    content: 'Contacted Saranya -Event Management client with Website requirement. She will be calling back in few minutes.',
+    role: 'sales',
+    stage: 'Lead Generation',
+    action_item: 'Lead Generation',
+    is_completed: false,
+    created_by: 'Sales Desk',
+    reminderDate: undefined,
+    timestamp: '2026-10-12T09:30:00.000Z'
+  },
+  {
+    id: 'sales-note-11',
+    content: 'Confirmed a final Quote for NIVI on added feature. Have scheduled a call in 30 mins.',
+    role: 'sales',
+    stage: 'Estimation',
+    action_item: 'Estimation',
+    is_completed: false,
+    created_by: 'Sales Desk',
+    reminderDate: '2026-10-12',
+    timestamp: '2026-10-12T09:00:00.000Z'
+  },
+  {
+    id: 'sales-note-12',
+    content: "Following up NIVI for additional features request and clarifying their exact needs to asses if it's in scope.",
+    role: 'sales',
+    stage: 'Lead Generation',
+    action_item: 'Lead Generation',
+    is_completed: false,
+    created_by: 'Sales Desk',
+    reminderDate: '2026-10-10',
+    timestamp: '2026-10-10T11:15:00.000Z'
+  },
+  {
+    id: 'sales-note-13',
+    content: "Successfully completed outreach for GMT's key digital products — Security Services, Boutique Business, and Sports Academy solutions — reaching out to 40 prospective contacts to generate leads, build awareness, and explore potential business opportunities. WhatsApp messages to 24 contacts were done as well.",
+    role: 'sales',
+    stage: 'Lead Generation',
+    action_item: 'Lead Generation',
+    is_completed: false,
+    created_by: 'Sales Desk',
+    reminderDate: '2026-10-09',
+    timestamp: '2026-10-09T16:45:00.000Z'
+  },
+  {
+    id: 'sales-note-14',
+    content: 'Called Khaleel - Madurai Department store owner for meeting up tomorrow for Sales pitch. Going along with Shanthini. Client has asked to confirm tomorrow morning.',
+    role: 'sales',
+    stage: 'Lead Generation',
+    action_item: 'Lead Generation',
+    is_completed: false,
+    created_by: 'Sales Desk',
+    reminderDate: '2026-10-10',
+    timestamp: '2026-10-09T14:20:00.000Z'
+  },
+  {
+    id: 'sales-note-15',
+    content: "Called and cancelled today's interview for the 2 prospects.",
+    role: 'sales',
+    stage: 'Lead Generation',
+    action_item: 'Lead Generation',
+    is_completed: false,
+    created_by: 'Sales Desk',
+    reminderDate: '2026-10-09',
+    timestamp: '2026-10-09T10:00:00.000Z'
+  },
+  {
+    id: 'sales-note-16',
+    content: 'Contacted 25 client prospects through mail and Whatsapp messages.',
+    role: 'sales',
+    stage: 'Proposal',
+    action_item: 'Proposal',
+    is_completed: false,
+    created_by: 'Sales Desk',
+    reminderDate: '2026-10-06',
+    timestamp: '2026-10-06T12:00:00.000Z'
   }
 ];
 
-const ADMIN_NOTES_STORAGE_KEY = 'admin_notes_v6';
-const SALES_NOTES_STORAGE_KEY = 'sales_notes_v6';
-const ADMIN_NOTES_INITIALIZED_KEY = 'todolist_admin_notes_initialized_v6';
-const SALES_NOTES_INITIALIZED_KEY = 'todolist_sales_notes_initialized_v6';
+const ADMIN_NOTES_STORAGE_KEY = 'admin_notes_v11';
+const SALES_NOTES_STORAGE_KEY = 'sales_notes_v11';
+const ADMIN_NOTES_INITIALIZED_KEY = 'todolist_admin_notes_initialized_v11';
+const SALES_NOTES_INITIALIZED_KEY = 'todolist_sales_notes_initialized_v11';
+
+export function syncLocalSalesNotes(notes: Note[]): void {
+  if (notes && notes.length > 0) {
+    // Filter out any fake seeded sales-note-today items and normalize each note
+    const cleanIncoming = notes
+      .filter(n => !String(n.id).startsWith('sales-note-today-'))
+      .map(normalizeSalesNote);
+    
+    // Preserve any legitimately added local sales notes that haven't yet reached Supabase
+    const currentLocal = getStorageItem<Note[]>(SALES_NOTES_STORAGE_KEY, [])
+      || getStorageItem<Note[]>('sales_notes_v10', [])
+      || getStorageItem<Note[]>('sales_notes', []);
+    const cleanLocal = (currentLocal || [])
+      .filter(n => !String(n.id).startsWith('sales-note-today-'))
+      .map(normalizeSalesNote);
+    
+    const incomingIds = new Set(cleanIncoming.map(n => String(n.id)));
+    const localPending = cleanLocal.filter(n => !incomingIds.has(String(n.id)));
+    const merged = [...cleanIncoming, ...localPending];
+
+    // Strict deduplication strictly by ID only — NEVER delete or drop user notes based on content
+    const seenIds = new Set<string>();
+    const deduplicated: Note[] = [];
+
+    for (const item of merged) {
+      const idStr = String(item.id);
+      if (seenIds.has(idStr)) continue;
+      seenIds.add(idStr);
+      deduplicated.push(item);
+    }
+
+    setStorageItem(SALES_NOTES_STORAGE_KEY, deduplicated);
+    setStorageItem(SALES_NOTES_INITIALIZED_KEY, true);
+  }
+}
+
+export function syncLocalAdminNotes(notes: Note[]): void {
+  if (notes && notes.length > 0) {
+    setStorageItem(ADMIN_NOTES_STORAGE_KEY, notes);
+    setStorageItem(ADMIN_NOTES_INITIALIZED_KEY, true);
+  }
+}
 
 export function getLocalNotes(role?: 'admin' | 'sales' | string): Note[] {
   const currentRole = role || getCurrentUserSession()?.role || 'admin';
@@ -737,18 +1192,49 @@ export function getLocalNotes(role?: 'admin' | 'sales' | string): Note[] {
   if (isSales) {
     const isSalesInitialized = getStorageItem<boolean>(SALES_NOTES_INITIALIZED_KEY, false);
     if (!isSalesInitialized) {
-      setStorageItem(SALES_NOTES_STORAGE_KEY, DEFAULT_SALES_NOTES);
+      // Check if user has notes in any previous storage key (v10, v9, etc.) to ensure NO existing notes are lost
+      const previousNotes = getStorageItem<Note[]>('sales_notes_v10', [])
+        || getStorageItem<Note[]>('sales_notes_v9', [])
+        || getStorageItem<Note[]>('sales_notes', []);
+      
+      const seedToUse = (previousNotes && previousNotes.length > 0) ? previousNotes.map(normalizeSalesNote) : DEFAULT_SALES_NOTES.map(normalizeSalesNote);
+      setStorageItem(SALES_NOTES_STORAGE_KEY, seedToUse);
       setStorageItem(SALES_NOTES_INITIALIZED_KEY, true);
-      return DEFAULT_SALES_NOTES;
+      return seedToUse;
     }
     const salesNotes = getStorageItem<Note[]>(SALES_NOTES_STORAGE_KEY, DEFAULT_SALES_NOTES);
-    return (salesNotes || [])
-      .filter(n => n.role !== 'admin' && String(n.id).startsWith('sales-note-'))
-      .map(n => ({
-        ...n,
-        role: 'sales' as const,
-        stage: n.stage || (n.action_item === 'Completed' ? 'Converted' : n.action_item === 'Pending' ? 'To Be Follow Up' : 'Reached Out')
-      }));
+    const validRawNotes = (salesNotes && salesNotes.length > 0) ? salesNotes : DEFAULT_SALES_NOTES;
+    
+    // Always strip out any fake sales-note-today-* items, but never mutate or modify user note content or stage
+    const filtered = validRawNotes
+      .filter(n => 
+        !String(n.id).startsWith('sales-note-today-') &&
+        n.role !== 'admin' && 
+        n.created_by !== 'Admin' && 
+        (n.role === 'sales' || n.created_by === 'Sales Desk' || String(n.id).startsWith('sales-note-'))
+      );
+
+    // Strict deduplication by ID only — NO notes are deleted or dropped
+    const seenIds = new Set<string>();
+    const deduplicated: Note[] = [];
+
+    for (const item of filtered) {
+      const idStr = String(item.id);
+      if (seenIds.has(idStr)) continue;
+      seenIds.add(idStr);
+      deduplicated.push(normalizeSalesNote(item));
+    }
+
+    if (deduplicated.length !== validRawNotes.length) {
+      setStorageItem(SALES_NOTES_STORAGE_KEY, deduplicated);
+    }
+
+    if (deduplicated.length === 0) {
+      const seeded = DEFAULT_SALES_NOTES.map(normalizeSalesNote);
+      setStorageItem(SALES_NOTES_STORAGE_KEY, seeded);
+      return seeded;
+    }
+    return deduplicated;
   }
 
   // Admin notes logic - strictly Admin only (NO sales notes or sales stages)
@@ -759,7 +1245,8 @@ export function getLocalNotes(role?: 'admin' | 'sales' | string): Note[] {
     return DEFAULT_NOTES;
   }
   const notes = getStorageItem<Note[]>(ADMIN_NOTES_STORAGE_KEY, DEFAULT_NOTES);
-  return (notes || [])
+  const validAdminNotes = (notes && notes.length > 0) ? notes : DEFAULT_NOTES;
+  const filteredAdmin = validAdminNotes
     .filter(n => n.role !== 'sales' && !String(n.id).startsWith('sales-note-') && n.created_by !== 'Sales Desk')
     .map(n => {
       const isCompleted = Boolean(n.is_completed || n.action_item === 'Completed');
@@ -772,31 +1259,70 @@ export function getLocalNotes(role?: 'admin' | 'sales' | string): Note[] {
         stage: undefined
       };
     });
+
+  if (filteredAdmin.length === 0) {
+    setStorageItem(ADMIN_NOTES_STORAGE_KEY, DEFAULT_NOTES);
+    return DEFAULT_NOTES;
+  }
+  return filteredAdmin;
 }
 
-export function saveLocalNote(note: Omit<Note, 'id' | 'timestamp'>, role?: 'admin' | 'sales' | string): Note {
+export function saveLocalNote(note: Omit<Note, 'id' | 'timestamp'> & { id?: string; timestamp?: string }, role?: 'admin' | 'sales' | string): Note {
   const targetRole = role || note.role || getCurrentUserSession()?.role || 'admin';
   const isSales = targetRole === 'sales';
-  const defaultStage = note.stage || note.action_item || 'Reached Out';
 
   if (isSales) {
+    const hasCategory = Boolean(note.category && note.category !== 'null' && note.category !== 'None' && String(note.category).trim() !== '');
+    const hasStage = Boolean(note.stage && note.stage !== 'null' && note.stage !== 'None' && String(note.stage).trim() !== '');
+
+    const finalStage = hasStage ? note.stage : undefined;
+    const finalCategory = hasCategory ? note.category : undefined;
+    const finalActionItem = finalCategory ? `Workstream: ${finalCategory}` : (finalStage || undefined);
+
+    const noteId = note.id || ('sales-note-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6));
+    const noteTimestamp = note.timestamp || new Date().toISOString();
     const newNote: Note = {
       ...note,
       role: 'sales',
       created_by: note.created_by || 'Sales Desk',
-      stage: defaultStage,
-      action_item: defaultStage,
-      is_completed: defaultStage === 'Converted',
-      id: 'sales-note-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6),
-      timestamp: new Date().toISOString()
+      stage: finalStage,
+      category: finalCategory,
+      action_item: finalActionItem,
+      is_completed: finalStage === 'Customer Onboarding' || finalStage === 'Converted' || finalStage === 'Partnership Followup',
+      id: noteId,
+      timestamp: noteTimestamp
     };
-    const salesNotes = getLocalNotes('sales');
+
+    // Filter out both matching ID and matching content so it is never saved twice
+    const contentKey = newNote.content.trim().toLowerCase();
+    const salesNotes = getLocalNotes('sales').filter(n => 
+      n.id !== noteId && 
+      !String(n.id).startsWith('sales-note-today-') &&
+      n.content.trim().toLowerCase() !== contentKey
+    );
     const updatedSalesNotes = [newNote, ...salesNotes];
     setStorageItem(SALES_NOTES_STORAGE_KEY, updatedSalesNotes);
     setStorageItem(SALES_NOTES_INITIALIZED_KEY, true);
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('sales-notes-updated'));
     }
+
+    if (isSupabaseConfigured() && supabase) {
+      supabase.from('notes').upsert([{
+        id: newNote.id,
+        content: newNote.content,
+        role: 'sales',
+        stage: newNote.stage || null,
+        action_item: newNote.action_item || null,
+        is_completed: newNote.is_completed || false,
+        created_by: newNote.created_by,
+        reminderDate: newNote.reminderDate || null,
+        timestamp: newNote.timestamp
+      }]).then(res => {
+        if (res.error) console.warn('Supabase saveSalesNote sync error:', res.error);
+      });
+    }
+
     return newNote;
   } else {
     const isCompleted = Boolean(note.is_completed || note.action_item === 'Completed');
@@ -814,6 +1340,23 @@ export function saveLocalNote(note: Omit<Note, 'id' | 'timestamp'>, role?: 'admi
     const updatedAdminNotes = [newNote, ...adminNotes];
     setStorageItem(ADMIN_NOTES_STORAGE_KEY, updatedAdminNotes);
     setStorageItem(ADMIN_NOTES_INITIALIZED_KEY, true);
+
+    if (isSupabaseConfigured() && supabase) {
+      supabase.from('notes').insert([{
+        id: newNote.id,
+        content: newNote.content,
+        role: 'admin',
+        stage: null,
+        action_item: newNote.action_item,
+        is_completed: newNote.is_completed,
+        created_by: newNote.created_by,
+        reminderDate: newNote.reminderDate || null,
+        timestamp: newNote.timestamp
+      }]).then(res => {
+        if (res.error) console.warn('Supabase saveAdminNote sync error:', res.error);
+      });
+    }
+
     return newNote;
   }
 }
@@ -828,18 +1371,46 @@ export function updateLocalNote(id: string, updates: Partial<Note>, role?: 'admi
     const index = salesNotes.findIndex(n => String(n.id) === String(id));
     if (index !== -1) {
       const current = salesNotes[index];
+
+      let finalStage = current.stage;
+      if (updates.stage !== undefined) {
+        finalStage = (updates.stage && updates.stage !== 'null' && updates.stage !== 'None' && String(updates.stage).trim() !== '') ? updates.stage : undefined;
+      }
+
+      let finalCategory = current.category;
+      if (updates.category !== undefined) {
+        finalCategory = (updates.category && updates.category !== 'null' && updates.category !== 'None' && String(updates.category).trim() !== '') ? updates.category : undefined;
+      }
+
+      const finalActionItem = finalCategory ? `Workstream: ${finalCategory}` : (finalStage || undefined);
+
       const updated: Note = {
         ...current,
         ...updates,
         role: 'sales',
-        stage: updates.stage || updates.action_item || current.stage || 'Reached Out',
-        action_item: updates.action_item || updates.stage || current.action_item || 'Reached Out'
+        stage: finalStage,
+        category: finalCategory,
+        action_item: finalActionItem,
+        is_completed: finalStage === 'Customer Onboarding' || finalStage === 'Converted' || finalStage === 'Partnership Followup' || (updates.is_completed !== undefined ? updates.is_completed : current.is_completed)
       };
       salesNotes[index] = updated;
       setStorageItem(SALES_NOTES_STORAGE_KEY, salesNotes);
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('sales-notes-updated'));
       }
+
+      if (isSupabaseConfigured() && supabase) {
+        supabase.from('notes').update({
+          content: updated.content,
+          stage: updated.stage || null,
+          action_item: updated.action_item || null,
+          reminderDate: updated.reminderDate || null,
+          is_completed: updated.is_completed || false
+        }).eq('id', id).then(res => {
+          if (res.error) console.warn('Supabase updateLocalNote sync error:', res.error);
+        });
+      }
+
       return updated;
     }
   } else {
@@ -861,6 +1432,16 @@ export function updateLocalNote(id: string, updates: Partial<Note>, role?: 'admi
       };
       adminNotes[index] = updated;
       setStorageItem(ADMIN_NOTES_STORAGE_KEY, adminNotes);
+
+      if (isSupabaseConfigured() && supabase) {
+        supabase.from('notes').update({
+          content: updated.content,
+          action_item: updated.action_item,
+          is_completed: updated.is_completed,
+          reminderDate: updated.reminderDate || null
+        }).eq('id', id).then();
+      }
+
       return updated;
     }
   }
@@ -884,6 +1465,10 @@ export function deleteLocalNote(id: string, role?: 'admin' | 'sales' | string): 
     const adminNotes = getStorageItem<Note[]>(ADMIN_NOTES_STORAGE_KEY, []);
     const filtered = adminNotes.filter(n => String(n.id) !== String(id));
     setStorageItem(ADMIN_NOTES_STORAGE_KEY, filtered);
+  }
+
+  if (isSupabaseConfigured() && supabase) {
+    supabase.from('notes').delete().eq('id', id).then();
   }
 }
 
@@ -962,6 +1547,25 @@ export function saveLocalEmployee(employee: Omit<Employee, 'id'>): Employee {
   };
   employees.unshift(newEmployee);
   setStorageItem('employees', employees);
+
+  if (isSupabaseConfigured() && supabase) {
+    supabase.from('employees').insert([{
+      name: newEmployee.name,
+      username: newEmployee.username,
+      email: newEmployee.email,
+      contact_number: newEmployee.contact_number,
+      role: newEmployee.role || 'Employee',
+      age: newEmployee.age,
+      address: newEmployee.address,
+      aadhar_number: newEmployee.aadhar_number,
+      pan_number: newEmployee.pan_number,
+      aadhar_doc_url: newEmployee.aadhar_doc_url,
+      pan_doc_url: newEmployee.pan_doc_url
+    }]).then(res => {
+      if (res.error) console.warn('Supabase saveEmployee sync error:', res.error);
+    });
+  }
+
   return newEmployee;
 }
 
@@ -980,6 +1584,13 @@ export function updateLocalEmployee(id: string, updates: Partial<Employee>): Emp
 
   employees[index] = updated;
   setStorageItem('employees', employees);
+
+  if (isSupabaseConfigured() && supabase) {
+    supabase.from('employees').update(updates).eq('id', id).then(res => {
+      if (res.error) console.warn('Supabase updateEmployee sync error:', res.error);
+    });
+  }
+
   return updated;
 }
 
@@ -987,9 +1598,46 @@ export function deleteLocalEmployee(id: string): void {
   const employees = getLocalEmployees();
   const filtered = employees.filter(e => e.id !== id);
   setStorageItem('employees', filtered);
+
+  if (isSupabaseConfigured() && supabase) {
+    supabase.from('employees').delete().eq('id', id).then(res => {
+      if (res.error) console.warn('Supabase deleteEmployee sync error:', res.error);
+    });
+  }
 }
 
 // Employee Credentials Store (for locally storing / caching employee portal passwords)
+export function decodeStoredPassword(encoded?: string | null): string | null {
+  if (!encoded || typeof encoded !== 'string') return null;
+  if (!encoded.startsWith('AUTH_KEY:')) return null;
+  try {
+    const raw = encoded.substring('AUTH_KEY:'.length);
+    if (typeof window !== 'undefined' && typeof window.atob === 'function') {
+      return decodeURIComponent(escape(window.atob(raw)));
+    }
+    if (typeof atob === 'function') {
+      return atob(raw);
+    }
+    return raw;
+  } catch {
+    return null;
+  }
+}
+
+export function encodeStoredPassword(pass: string): string {
+  try {
+    if (typeof window !== 'undefined' && typeof window.btoa === 'function') {
+      return `AUTH_KEY:${window.btoa(unescape(encodeURIComponent(pass)))}`;
+    }
+    if (typeof btoa === 'function') {
+      return `AUTH_KEY:${btoa(pass)}`;
+    }
+    return `AUTH_KEY:${pass}`;
+  } catch {
+    return `AUTH_KEY:${pass}`;
+  }
+}
+
 export function getEmployeeCredentials(): Record<string, string> {
   try {
     const raw = localStorage.getItem('employee_credentials');
@@ -1007,12 +1655,34 @@ export function saveEmployeeCredential(identifier: string, password: string): vo
   localStorage.setItem('employee_credentials', JSON.stringify(creds));
 }
 
+export async function persistEmployeePassword(empIdOrEmail: string, password: string): Promise<void> {
+  if (!empIdOrEmail || !password) return;
+  saveEmployeeCredential(empIdOrEmail, password);
+
+  if (isSupabaseConfigured() && supabase) {
+    try {
+      const enc = encodeStoredPassword(password);
+      const cleanKey = empIdOrEmail.toLowerCase().trim();
+      if (cleanKey.includes('@')) {
+        await supabase.from('employees').update({ pan_doc_name: enc }).eq('email', cleanKey);
+      } else {
+        await supabase.from('employees').update({ pan_doc_name: enc }).eq('id', empIdOrEmail);
+      }
+    } catch (err) {
+      console.warn('Could not persist employee password to Supabase:', err);
+    }
+  }
+}
+
 export function getEmployeePassword(emp: Employee): string {
   if (emp.password) return emp.password;
+  const decoded = decodeStoredPassword((emp as any).pan_doc_name);
+  if (decoded) return decoded;
   const creds = getEmployeeCredentials();
   if (emp.id && creds[emp.id.toLowerCase()]) return creds[emp.id.toLowerCase()];
   if (emp.email && creds[emp.email.toLowerCase()]) return creds[emp.email.toLowerCase()];
   if (emp.username && creds[emp.username.toLowerCase()]) return creds[emp.username.toLowerCase()];
+  if (emp.name && creds[emp.name.toLowerCase()]) return creds[emp.name.toLowerCase()];
   return 'password123';
 }
 
@@ -1032,16 +1702,22 @@ export function syncEmployeesWithSupabase(supabaseEmployees: Employee[]): Employ
   // Merge Supabase employees
   for (const sEmp of supabaseEmployees) {
     const existing = localMap.get(sEmp.id) || (sEmp.email ? localMap.get(sEmp.email.toLowerCase()) : undefined);
+    const decodedRemote = decodeStoredPassword((sEmp as any).pan_doc_name);
+    const resolvedPassword = decodedRemote || existing?.password || getEmployeePassword(sEmp);
+
     const merged: Employee = {
       ...existing,
       ...sEmp,
       email: sEmp.email || existing?.email,
       username: sEmp.username || existing?.username || (sEmp.email ? sEmp.email.split('@')[0] : sEmp.name.toLowerCase().replace(/\s+/g, '')),
-      password: existing?.password || getEmployeePassword(sEmp)
+      password: resolvedPassword
     };
     localMap.set(sEmp.id, merged);
     if (merged.email) {
       localMap.set(merged.email.toLowerCase(), merged);
+    }
+    if (merged.email && resolvedPassword) {
+      saveEmployeeCredential(merged.email, resolvedPassword);
     }
   }
 
@@ -1084,9 +1760,16 @@ export async function findEmployeeAccount(searchKey: string): Promise<Employee |
 
         if (found) {
           const creds = getEmployeeCredentials();
-          const customPass = (found.id && creds[found.id.toLowerCase()]) || 
+          const decodedRemote = decodeStoredPassword((found as any).pan_doc_name);
+          const customPass = decodedRemote ||
+                             (found.id && creds[found.id.toLowerCase()]) || 
                              (found.email && creds[found.email.toLowerCase()]) || 
                              'password123';
+
+          // Cache locally
+          if (found.email && customPass) saveEmployeeCredential(found.email, customPass);
+          if (found.id && customPass) saveEmployeeCredential(found.id, customPass);
+
           return {
             ...found,
             username: found.email ? found.email.split('@')[0] : found.name.toLowerCase().replace(/\s+/g, ''),
@@ -1116,6 +1799,23 @@ export async function findEmployeeAccount(searchKey: string): Promise<Employee |
   }
 
   return null;
+}
+
+export async function resetEmployeePassword(identifier: string, newPass: string): Promise<Employee | null> {
+  const emp = await findEmployeeAccount(identifier);
+  if (!emp) return null;
+  emp.password = newPass;
+  await persistEmployeePassword(emp.email || emp.id, newPass);
+  if (emp.id) saveEmployeeCredential(emp.id, newPass);
+  if (emp.email) saveEmployeeCredential(emp.email, newPass);
+  if (emp.username) saveEmployeeCredential(emp.username, newPass);
+  
+  try {
+    updateLocalEmployee(emp.id, { password: newPass });
+  } catch {
+    // If not in local array, ignore
+  }
+  return emp;
 }
 
 // --- Default Employee Tasks ---
@@ -1196,6 +1896,21 @@ export const saveLocalEmployeeTask = (task: Omit<EmployeeTask, 'id' | 'created_a
   
   tasks.unshift(newTask);
   localStorage.setItem('local_employee_tasks', JSON.stringify(tasks));
+
+  if (isSupabaseConfigured() && supabase) {
+    supabase.from('employee_tasks').insert([{
+      employee_id: task.employee_id,
+      title: task.title,
+      description: task.description || null,
+      priority: task.priority,
+      status: task.status,
+      due_date: task.due_date,
+      assigned_by: task.assigned_by || 'Admin'
+    }]).then(res => {
+      if (res.error) console.warn('Supabase saveTask sync error:', res.error);
+    });
+  }
+
   return newTask;
 };
 
@@ -1205,6 +1920,11 @@ export const updateLocalEmployeeTask = (id: string, updates: Partial<EmployeeTas
   if (index !== -1) {
     tasks[index] = { ...tasks[index], ...updates };
     localStorage.setItem('local_employee_tasks', JSON.stringify(tasks));
+
+    if (isSupabaseConfigured() && supabase) {
+      supabase.from('employee_tasks').update(updates).eq('id', id).then();
+    }
+
     return tasks[index];
   }
   return null;
@@ -1214,6 +1934,10 @@ export const deleteLocalEmployeeTask = (id: string): void => {
   const tasks = getLocalEmployeeTasks();
   const filtered = tasks.filter(t => t.id !== id);
   localStorage.setItem('local_employee_tasks', JSON.stringify(filtered));
+
+  if (isSupabaseConfigured() && supabase) {
+    supabase.from('employee_tasks').delete().eq('id', id).then();
+  }
 };
 
 // ==========================================
@@ -1249,13 +1973,17 @@ const DEFAULT_DAILY_REPORTS: EmployeeDailyReport[] = [
 
 export const getLocalDailyReports = (): EmployeeDailyReport[] => {
   try {
+    const rawDeleted = localStorage.getItem('deleted_daily_report_ids');
+    const deletedIds: string[] = rawDeleted ? JSON.parse(rawDeleted) : [];
+
     const data = localStorage.getItem('local_employee_daily_reports');
     if (!data) {
-      localStorage.setItem('local_employee_daily_reports', JSON.stringify(DEFAULT_DAILY_REPORTS));
-      return DEFAULT_DAILY_REPORTS;
+      const initial = DEFAULT_DAILY_REPORTS.filter(r => !deletedIds.includes(String(r.id)));
+      localStorage.setItem('local_employee_daily_reports', JSON.stringify(initial));
+      return initial;
     }
     const parsed: EmployeeDailyReport[] = JSON.parse(data);
-    return parsed;
+    return parsed.filter(r => !deletedIds.includes(String(r.id)));
   } catch (error) {
     console.error('Error reading local daily reports:', error);
     return DEFAULT_DAILY_REPORTS;
@@ -1269,6 +1997,8 @@ export const saveLocalDailyReport = (report: Omit<EmployeeDailyReport, 'id' | 'c
     r => r.employee_id === report.employee_id && r.report_date === report.report_date
   );
 
+  let resultReport: EmployeeDailyReport;
+
   if (existingIndex !== -1) {
     // Update existing report for today
     const updated: EmployeeDailyReport = {
@@ -1278,27 +2008,49 @@ export const saveLocalDailyReport = (report: Omit<EmployeeDailyReport, 'id' | 'c
     };
     reports[existingIndex] = updated;
     localStorage.setItem('local_employee_daily_reports', JSON.stringify(reports));
-    return updated;
+    resultReport = updated;
+  } else {
+    const newReport: EmployeeDailyReport = {
+      ...report,
+      id: `report_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    reports.unshift(newReport);
+    localStorage.setItem('local_employee_daily_reports', JSON.stringify(reports));
+    resultReport = newReport;
   }
 
-  const newReport: EmployeeDailyReport = {
-    ...report,
-    id: `report_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  };
+  if (isSupabaseConfigured() && supabase) {
+    supabase.from('employee_daily_reports').upsert([{
+      employee_id: resultReport.employee_id,
+      employee_name: resultReport.employee_name,
+      report_date: resultReport.report_date,
+      today_updates: resultReport.today_updates,
+      challenges_blockers: resultReport.challenges_blockers || null,
+      plan_for_tomorrow: resultReport.plan_for_tomorrow || null,
+      hours_worked: resultReport.hours_worked || 8,
+      status: resultReport.status || 'Submitted'
+    }], { onConflict: 'employee_id,report_date' }).then(res => {
+      if (res.error) console.warn('Supabase saveDailyReport sync error:', res.error);
+    });
+  }
 
-  reports.unshift(newReport);
-  localStorage.setItem('local_employee_daily_reports', JSON.stringify(reports));
-  return newReport;
+  return resultReport;
 };
 
 export const updateLocalDailyReport = (id: string, updates: Partial<EmployeeDailyReport>): EmployeeDailyReport | null => {
   const reports = getLocalDailyReports();
-  const index = reports.findIndex(r => r.id === id);
+  const index = reports.findIndex(r => String(r.id) === String(id));
   if (index !== -1) {
     reports[index] = { ...reports[index], ...updates, updated_at: new Date().toISOString() };
     localStorage.setItem('local_employee_daily_reports', JSON.stringify(reports));
+
+    if (isSupabaseConfigured() && supabase) {
+      supabase.from('employee_daily_reports').update(updates).eq('id', id).then();
+    }
+
     return reports[index];
   }
   return null;
@@ -1306,8 +2058,25 @@ export const updateLocalDailyReport = (id: string, updates: Partial<EmployeeDail
 
 export const deleteLocalDailyReport = (id: string): void => {
   const reports = getLocalDailyReports();
-  const filtered = reports.filter(r => r.id !== id);
+  const idStr = String(id);
+  const filtered = reports.filter(r => String(r.id) !== idStr);
   localStorage.setItem('local_employee_daily_reports', JSON.stringify(filtered));
+
+  if (isSupabaseConfigured() && supabase) {
+    supabase.from('employee_daily_reports').delete().eq('id', id).then();
+  }
+
+  // Blacklist deleted ID so Supabase fetch or component reloads never resurrect it
+  try {
+    const rawDeleted = localStorage.getItem('deleted_daily_report_ids');
+    const deletedIds: string[] = rawDeleted ? JSON.parse(rawDeleted) : [];
+    if (!deletedIds.includes(idStr)) {
+      deletedIds.push(idStr);
+      localStorage.setItem('deleted_daily_report_ids', JSON.stringify(deletedIds));
+    }
+  } catch (e) {
+    console.error('Error recording deleted daily report id:', e);
+  }
 };
 
 export const getEmployeeDailyReports = (employeeId: string): EmployeeDailyReport[] => {

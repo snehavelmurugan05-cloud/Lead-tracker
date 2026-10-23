@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
@@ -26,6 +27,7 @@ import {
   setCurrentUserSession,
   type UserSession
 } from './lib/localDatabase';
+import { checkAndNotifyDueReminders } from './lib/desktopNotification';
 
 export const App: React.FC = () => {
   // Current user session (Admin or Employee)
@@ -69,8 +71,8 @@ export const App: React.FC = () => {
   const [reportPrefill, setReportPrefill] = useState<string>('');
   const [globalSearchQuery, setGlobalSearchQuery] = useState<string>('');
 
-  // Decide default mode: if Supabase config is missing, fall back to offline simulation
-  const [isDemo, setIsDemo] = useState<boolean>(!isSupabaseConfigured());
+  // Mode: Default to live Supabase DB
+  const [isDemo, setIsDemo] = useState<boolean>(false);
 
   // Theme control: read from localStorage or default to light
   const [theme, setTheme] = useState<'dark' | 'light'>(
@@ -145,24 +147,33 @@ export const App: React.FC = () => {
     }
   }, [activeTab]);
 
-  // Fetch count of pending tasks across application or employee tasks
+  // Fetch count of pending tasks directly from Supabase DB
   const updatePendingCount = async () => {
     if (currentUser?.role === 'employee') {
-      const empTasks = getLocalEmployeeTasks();
-      const count = empTasks.filter(t =>
-        (t.employee_id === currentUser.id ||
-         t.employee_id.toLowerCase().includes(currentUser.username.toLowerCase()) ||
-         t.employee_id === `emp-${currentUser.username.toLowerCase()}`) &&
-        t.status !== 'Completed'
-      ).length;
-      setEmployeePendingCount(count);
+      if (supabase) {
+        try {
+          const { data } = await supabase.from('employee_tasks').select('*');
+          if (data) {
+            const count = data.filter(t =>
+              (t.employee_id === currentUser.id ||
+               (t.employee_id && t.employee_id.toLowerCase().includes((currentUser.username || '').toLowerCase())) ||
+               t.employee_id === `emp-${(currentUser.username || '').toLowerCase()}`) &&
+              t.status !== 'Completed'
+            ).length;
+            setEmployeePendingCount(count);
+            return;
+          }
+        } catch (err) {
+          console.error('Error fetching employee tasks from DB:', err);
+        }
+      }
       return;
     }
 
     const userRole = currentUser?.role === 'sales' ? 'sales' : 'admin';
 
-    // Admin or Sales pending count
-    if (!isDemo && isSupabaseConfigured() && supabase) {
+    // Admin or Sales pending count from DB
+    if (supabase) {
       try {
         const { data: enqs } = await supabase.from('enquiries').select('interested, follow_up_done, can_follow_up');
         if (enqs) {
@@ -174,28 +185,27 @@ export const App: React.FC = () => {
         if (!notesError && nts) {
           const nCount = nts.filter(n => n.reminderDate && !n.is_completed).length;
           setPendingNotesCount(nCount);
-        } else {
-          const localNts = getLocalNotes(userRole);
-          const nCount = localNts.filter(n => n.reminderDate && !n.is_completed).length;
-          setPendingNotesCount(nCount);
         }
       } catch (err) {
-        console.error('Error fetching pending counts:', err);
+        console.error('Error fetching pending counts from DB:', err);
       }
-    } else {
-      const enqs = getLocalEnquiries();
-      const count = enqs.filter(e => e.interested === null || e.follow_up_done === null || e.can_follow_up === null).length;
-      setPendingCount(count);
-
-      const nts = getLocalNotes(userRole);
-      const nCount = nts.filter(n => n.reminderDate && !n.is_completed).length;
-      setPendingNotesCount(nCount);
     }
   };
 
   useEffect(() => {
     if (isAuthenticated) {
       updatePendingCount();
+      if (currentUser?.role !== 'employee') {
+        checkAndNotifyDueReminders(currentUser?.role || 'admin');
+      }
+
+      const interval = setInterval(() => {
+        if (currentUser?.role !== 'employee') {
+          checkAndNotifyDueReminders(currentUser?.role || 'admin');
+        }
+      }, 10 * 60 * 1000);
+
+      return () => clearInterval(interval);
     }
   }, [isDemo, refreshTrigger, isAuthenticated, currentUser]);
 
@@ -206,6 +216,59 @@ export const App: React.FC = () => {
   const handleDatabaseUpdate = () => {
     setRefreshTrigger(prev => prev + 1);
   };
+
+  // Realtime subscription for cross-device live data synchronization
+  useEffect(() => {
+    if (!supabase || isDemo) return;
+
+    const channel = supabase.channel('cross-device-sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notes' }, () => {
+        handleDatabaseUpdate();
+        window.dispatchEvent(new CustomEvent('sales-notes-updated'));
+        window.dispatchEvent(new CustomEvent('notes-updated'));
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'enquiries' }, () => {
+        handleDatabaseUpdate();
+        window.dispatchEvent(new CustomEvent('enquiries-updated'));
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'courses' }, () => {
+        handleDatabaseUpdate();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, () => {
+        handleDatabaseUpdate();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'employee_tasks' }, () => {
+        handleDatabaseUpdate();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'employee_daily_reports' }, () => {
+        handleDatabaseUpdate();
+      })
+      .subscribe();
+
+    // Auto-refresh when window gains focus or becomes visible
+    const handleFocus = () => {
+      handleDatabaseUpdate();
+      window.dispatchEvent(new CustomEvent('sales-notes-updated'));
+      window.dispatchEvent(new CustomEvent('notes-updated'));
+      window.dispatchEvent(new CustomEvent('enquiries-updated'));
+    };
+
+    window.addEventListener('focus', handleFocus);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        handleFocus();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      if (supabase) {
+        supabase.removeChannel(channel);
+      }
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
+  }, [isDemo]);
 
   const handleLoginSuccess = (session?: UserSession) => {
     if (session) {
@@ -475,7 +538,7 @@ export const App: React.FC = () => {
         );
       case 'notes':
         return (
-          <Notes
+          <SalesNotes
             currentUser={currentUser}
             onUpdate={handleDatabaseUpdate}
             searchQuery={globalSearchQuery}
@@ -542,24 +605,7 @@ export const App: React.FC = () => {
           onUpdate={handleDatabaseUpdate}
         />
 
-        {/* Banner indicating simulation state */}
-        {isDemo && activeTab !== 'settings' && (
-          <div className="demo-banner">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', backgroundColor: 'hsl(var(--warning))', animation: 'pulse-red 1.5s infinite' }} />
-              <span>
-                <strong>Sandbox Offline Mode Active:</strong> You are exploring using local browser memory. Configure keys on the Settings page to link live Supabase functions.
-              </span>
-            </div>
-            <button
-              onClick={() => setActiveTab('settings')}
-              className="btn btn-secondary"
-              style={{ padding: '4px 10px', fontSize: '11px', fontWeight: 'bold' }}
-            >
-              Configure Keys
-            </button>
-          </div>
-        )}
+
 
         <div style={{ marginTop: '8px' }}>
           {renderAdminTab()}

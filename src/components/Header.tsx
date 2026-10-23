@@ -17,18 +17,21 @@ import {
   FolderOpen,
   Check,
   RotateCcw,
-  Plus
+  Plus,
+  CheckCircle
 } from 'lucide-react';
 import {
   type UserSession,
   getLocalNotes,
   getLocalEnquiries,
   getLocalCourses,
+  getLocalEmployeeTasks,
   resolveNoteStage,
   updateLocalNote,
   type Note,
   type Enquiry,
-  type Course
+  type Course,
+  type EmployeeTask
 } from '../lib/localDatabase';
 
 interface HeaderProps {
@@ -46,6 +49,22 @@ interface HeaderProps {
 }
 
 const STAGE_COLORS: Record<string, { bg: string; color: string; border: string }> = {
+  'Target Customer': { bg: 'rgba(99, 102, 241, 0.12)', color: '#4f46e5', border: 'rgba(99, 102, 241, 0.3)' },
+  'Lead Generation': { bg: 'rgba(2, 132, 199, 0.12)', color: '#0284c7', border: 'rgba(2, 132, 199, 0.3)' },
+  'Demo': { bg: 'rgba(147, 51, 234, 0.12)', color: '#9333ea', border: 'rgba(147, 51, 234, 0.3)' },
+  'Requirement Gathering': { bg: 'rgba(217, 119, 6, 0.12)', color: '#d97706', border: 'rgba(217, 119, 6, 0.3)' },
+  'Estimation': { bg: 'rgba(71, 121, 135, 0.15)', color: '#477987', border: 'rgba(71, 121, 135, 0.3)' },
+  'Proposal': { bg: 'rgba(234, 88, 12, 0.15)', color: '#ea580c', border: 'rgba(234, 88, 12, 0.3)' },
+  'Customer Onboarding': { bg: 'rgba(27, 163, 124, 0.15)', color: '#1ba37c', border: 'rgba(27, 163, 124, 0.3)' },
+  // Legacy stages fallback
+  'Cold Email Outreach': { bg: 'rgba(2, 132, 199, 0.12)', color: '#0284c7', border: 'rgba(2, 132, 199, 0.3)' },
+  'Lead Research': { bg: 'rgba(99, 102, 241, 0.12)', color: '#6366f1', border: 'rgba(99, 102, 241, 0.3)' },
+  'Initial Call': { bg: 'rgba(217, 119, 6, 0.12)', color: '#d97706', border: 'rgba(217, 119, 6, 0.3)' },
+  'Requirement Identification': { bg: 'rgba(147, 51, 234, 0.12)', color: '#9333ea', border: 'rgba(147, 51, 234, 0.3)' },
+  'Requirement-Based Email Sent': { bg: 'rgba(13, 148, 136, 0.12)', color: '#0d9488', border: 'rgba(13, 148, 136, 0.3)' },
+  'Partnership Proposal': { bg: 'rgba(225, 29, 72, 0.12)', color: '#e11d48', border: 'rgba(225, 29, 72, 0.3)' },
+  'Partnership Conversation': { bg: 'rgba(5, 150, 105, 0.12)', color: '#059669', border: 'rgba(5, 150, 105, 0.3)' },
+  'Partnership Followup': { bg: 'rgba(168, 85, 247, 0.12)', color: '#a855f7', border: 'rgba(168, 85, 247, 0.3)' },
   'Reached Out': { bg: 'rgba(2, 132, 199, 0.12)', color: '#0284c7', border: 'rgba(2, 132, 199, 0.3)' },
   'Pipeline': { bg: 'rgba(71, 121, 135, 0.15)', color: '#477987', border: 'rgba(71, 121, 135, 0.3)' },
   'Converted': { bg: 'rgba(27, 163, 124, 0.15)', color: '#1ba37c', border: 'rgba(27, 163, 124, 0.3)' },
@@ -346,29 +365,65 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   // ----------------------------------------------------
-  // Admin Notification Data
+  // Role Detection
   // ----------------------------------------------------
-  const adminEnquiries: Enquiry[] = !isSales ? getLocalEnquiries() : [];
-  const adminDueEnquiries: Enquiry[] = !isSales
+  const isEmployee = currentUser?.role === 'employee';
+  const isAdmin = !isSales && !isEmployee;
+
+  // ----------------------------------------------------
+  // Employee Notification Data (Assigned Tasks)
+  // ----------------------------------------------------
+  const employeeTasks: EmployeeTask[] = isEmployee ? getLocalEmployeeTasks() : [];
+  const empId = (currentUser?.id || '').toLowerCase();
+  const empUser = (currentUser?.username || '').toLowerCase();
+  const empName = (currentUser?.name || '').toLowerCase();
+
+  const myEmployeePendingTasks: EmployeeTask[] = isEmployee
+    ? employeeTasks.filter(t => {
+        if (t.status === 'Completed') return false;
+        const assignedId = (t.employee_id || '').toLowerCase();
+        return (
+          assignedId === empId ||
+          (empUser && assignedId.includes(empUser)) ||
+          (empName && assignedId.includes(empName))
+        );
+      })
+    : [];
+
+  // ----------------------------------------------------
+  // Admin Notification Data (Strictly Admin only)
+  // ----------------------------------------------------
+  const adminEnquiries: Enquiry[] = isAdmin ? getLocalEnquiries() : [];
+  const adminDueEnquiries: Enquiry[] = isAdmin
     ? adminEnquiries.filter(e => {
         const isUnresolved = e.interested === null || e.follow_up_done === null || e.can_follow_up === null;
         return isUnresolved;
       })
     : [];
-  const adminNotes: Note[] = !isSales ? getLocalNotes('admin') : [];
-  const adminDueNotes: Note[] = !isSales
+  const adminNotes: Note[] = isAdmin ? getLocalNotes('admin') : [];
+  const adminDueNotes: Note[] = isAdmin
     ? adminNotes.filter(n => n.reminderDate && !n.is_completed)
     : [];
 
-  // Notification badge count
+  // Notification badge count - Strictly segregated by role
   const effectiveNotificationCount = isSales
     ? allSalesReminders.length
+    : isEmployee
+    ? myEmployeePendingTasks.length
     : (pendingCount > 0 ? pendingCount : (adminDueEnquiries.length + adminDueNotes.length));
 
   // ----------------------------------------------------
   // Search Matches Generation
   // ----------------------------------------------------
   const cleanQuery = internalSearch.trim().toLowerCase();
+
+  // Employee Search: searches employee's assigned tasks
+  const matchingEmployeeTasks: EmployeeTask[] = (isEmployee && cleanQuery)
+    ? employeeTasks.filter(t =>
+        t.title.toLowerCase().includes(cleanQuery) ||
+        (t.description && t.description.toLowerCase().includes(cleanQuery))
+      )
+    : [];
 
   // Sales Search: searches sales recent notes
   const matchingSalesNotes: Note[] = (isSales && cleanQuery)
@@ -378,9 +433,9 @@ export const Header: React.FC<HeaderProps> = ({
       )
     : [];
 
-  // Admin Search: searches leads, notes, and courses
-  const allCourses: Course[] = !isSales && cleanQuery ? getLocalCourses() : [];
-  const matchingLeads: Enquiry[] = (!isSales && cleanQuery)
+  // Admin Search: searches leads, notes, and courses (Admin only)
+  const allCourses: Course[] = isAdmin && cleanQuery ? getLocalCourses() : [];
+  const matchingLeads: Enquiry[] = (isAdmin && cleanQuery)
     ? adminEnquiries.filter(e => {
         const c = allCourses.find(course => course.id === e.course_id);
         return e.contact_name.toLowerCase().includes(cleanQuery) ||
@@ -390,14 +445,14 @@ export const Header: React.FC<HeaderProps> = ({
       })
     : [];
 
-  const matchingAdminNotes: Note[] = (!isSales && cleanQuery)
+  const matchingAdminNotes: Note[] = (isAdmin && cleanQuery)
     ? adminNotes.filter(n =>
         n.content.toLowerCase().includes(cleanQuery) ||
         (n.stage && n.stage.toLowerCase().includes(cleanQuery))
       )
     : [];
 
-  const matchingCourses: Course[] = (!isSales && cleanQuery)
+  const matchingCourses: Course[] = (isAdmin && cleanQuery)
     ? allCourses.filter(c =>
         c.name.toLowerCase().includes(cleanQuery) ||
         (c.description && c.description.toLowerCase().includes(cleanQuery))
@@ -443,7 +498,7 @@ export const Header: React.FC<HeaderProps> = ({
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
               <input
                 type="text"
-                placeholder={isSales ? 'Search sales notes...' : 'Search leads, notes...'}
+                placeholder={isSales ? 'Search sales notes...' : isEmployee ? 'Search my tasks...' : 'Search leads, notes...'}
                 value={internalSearch}
                 onChange={handleSearchChange}
                 onFocus={() => {
@@ -538,7 +593,7 @@ export const Header: React.FC<HeaderProps> = ({
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                         {matchingSalesNotes.slice(0, 8).map(n => {
                           const stage = resolveNoteStage(n);
-                          const theme = STAGE_COLORS[stage] || STAGE_COLORS['Reached Out'];
+                          const theme = stage ? (STAGE_COLORS[stage] || STAGE_COLORS['Reached Out']) : STAGE_COLORS['Reached Out'];
                           return (
                             <div
                               key={n.id}
@@ -598,6 +653,79 @@ export const Header: React.FC<HeaderProps> = ({
                             View all {matchingSalesNotes.length} matching notes →
                           </button>
                         )}
+                      </div>
+                    )}
+                  </>
+                ) : isEmployee ? (
+                  /* EMPLOYEE SEARCH DROPDOWN */
+                  <>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '6px', borderBottom: '1px solid #eef4f7' }}>
+                      <span style={{ fontSize: '12px', fontWeight: 800, color: '#1f4854' }}>
+                        My Tasks ({matchingEmployeeTasks.length})
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setIsSearchOpen(false)}
+                        style={{ background: 'none', border: 'none', color: '#7a9aa7', cursor: 'pointer', padding: 0 }}
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+
+                    {matchingEmployeeTasks.length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: '24px 12px', color: '#5b7b88', fontSize: '13px' }}>
+                        No tasks found matching <strong style={{ color: '#162e3b' }}>"{internalSearch}"</strong>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {matchingEmployeeTasks.map(task => {
+                          const priorityColor =
+                            task.priority === 'High' ? '#dc2626' :
+                            task.priority === 'Medium' ? '#d97706' : '#2563eb';
+                          const priorityBg =
+                            task.priority === 'High' ? 'rgba(220, 38, 38, 0.1)' :
+                            task.priority === 'Medium' ? 'rgba(217, 119, 6, 0.1)' : 'rgba(37, 99, 235, 0.1)';
+
+                          return (
+                            <div
+                              key={task.id}
+                              onClick={() => {
+                                setIsSearchOpen(false);
+                                setActiveTab('employee-tasks');
+                              }}
+                              style={{
+                                padding: '9px 12px',
+                                borderRadius: '8px',
+                                border: '1px solid #eef4f7',
+                                backgroundColor: '#fcfdfd',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '4px'
+                              }}
+                              onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#f1f7f9')}
+                              onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#fcfdfd')}
+                            >
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '12px', backgroundColor: priorityBg, color: priorityColor }}>
+                                  {task.priority || 'Normal'} Priority
+                                </span>
+                                <span style={{ fontSize: '11px', color: task.status === 'Completed' ? '#10b981' : '#d97706', fontWeight: 700 }}>
+                                  {task.status}
+                                </span>
+                              </div>
+                              <div style={{ fontSize: '12.5px', color: '#162e3b', fontWeight: 600 }}>
+                                {task.title}
+                              </div>
+                              {task.description && (
+                                <div style={{ fontSize: '11.5px', color: '#5b7b88', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  {task.description}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </>
@@ -777,7 +905,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               id="header-notification-bell-btn"
               onClick={() => setIsNotifOpen(prev => !prev)}
-              title={isSales ? 'Sales Reminders & Follow-ups' : 'View Pending Tasks & Alert Days'}
+              title={isSales ? 'Sales Reminders & Follow-ups' : isEmployee ? 'My Task Notifications' : 'View Pending Tasks & Alert Days'}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -1021,7 +1149,7 @@ export const Header: React.FC<HeaderProps> = ({
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '310px', overflowY: 'auto' }}>
                         {displayedSalesReminders.map(n => {
                           const stage = resolveNoteStage(n);
-                          const theme = STAGE_COLORS[stage] || STAGE_COLORS['Reached Out'];
+                          const theme = stage ? (STAGE_COLORS[stage] || STAGE_COLORS['Reached Out']) : STAGE_COLORS['Reached Out'];
                           const dueStatus = formatRelativeDue(n.reminderDate);
 
                           return (
@@ -1172,6 +1300,129 @@ export const Header: React.FC<HeaderProps> = ({
                       >
                         <Plus size={13} />
                         <span>Log New Note</span>
+                      </button>
+                    </div>
+                  </>
+                ) : isEmployee ? (
+                  /* EMPLOYEE NOTIFICATIONS */
+                  <>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '10px', borderBottom: '1px solid #eef4f7' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ width: '30px', height: '30px', borderRadius: '8px', backgroundColor: 'rgba(31, 72, 84, 0.1)', color: '#1f4854', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <CheckCircle2 size={16} />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '14px', fontWeight: 800, color: '#162e3b' }}>
+                            My Task Alerts
+                          </div>
+                          <div style={{ fontSize: '11.5px', color: '#5b7b88' }}>
+                            Assigned tasks & deadlines
+                          </div>
+                        </div>
+                      </div>
+                      <span
+                        style={{
+                          padding: '3px 8px',
+                          borderRadius: '12px',
+                          backgroundColor: myEmployeePendingTasks.length > 0 ? 'rgba(234, 88, 12, 0.12)' : 'rgba(27, 163, 124, 0.12)',
+                          color: myEmployeePendingTasks.length > 0 ? '#ea580c' : '#1ba37c',
+                          fontSize: '11px',
+                          fontWeight: 700
+                        }}
+                      >
+                        {myEmployeePendingTasks.length > 0 ? `${myEmployeePendingTasks.length} Pending` : 'All Caught Up'}
+                      </span>
+                    </div>
+
+                    {myEmployeePendingTasks.length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: '28px 16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ width: '44px', height: '44px', borderRadius: '50%', backgroundColor: 'rgba(27, 163, 124, 0.12)', color: '#1ba37c', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <CheckCircle2 size={22} />
+                        </div>
+                        <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#162e3b' }}>
+                          No Pending Task Alerts
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#5b7b88', maxWidth: '260px', lineHeight: 1.4 }}>
+                          You have completed all your assigned tasks or have no new alerts. Great job!
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '320px', overflowY: 'auto' }}>
+                        {myEmployeePendingTasks.map(task => {
+                          const priorityColor =
+                            task.priority === 'High' ? '#dc2626' :
+                            task.priority === 'Medium' ? '#d97706' : '#2563eb';
+                          const priorityBg =
+                            task.priority === 'High' ? 'rgba(220, 38, 38, 0.1)' :
+                            task.priority === 'Medium' ? 'rgba(217, 119, 6, 0.1)' : 'rgba(37, 99, 235, 0.1)';
+
+                          return (
+                            <div
+                              key={task.id}
+                              onClick={() => {
+                                setIsNotifOpen(false);
+                                setActiveTab('employee-tasks');
+                              }}
+                              style={{
+                                padding: '10px 12px',
+                                borderRadius: '8px',
+                                backgroundColor: '#f8fafc',
+                                border: '1px solid #eef4f7',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '4px',
+                                transition: 'all 0.15s ease'
+                              }}
+                              onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#eef5f8')}
+                              onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#f8fafc')}
+                            >
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ fontSize: '10.5px', fontWeight: 700, padding: '2px 7px', borderRadius: '10px', backgroundColor: priorityBg, color: priorityColor }}>
+                                  {task.priority || 'Normal'} Priority
+                                </span>
+                                {task.due_date && (
+                                  <span style={{ fontSize: '11px', color: '#7a9aa7' }}>
+                                    Due {task.due_date}
+                                  </span>
+                                )}
+                              </div>
+                              <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#162e3b' }}>
+                                {task.title}
+                              </div>
+                              {task.description && (
+                                <div style={{ fontSize: '11.5px', color: '#5b7b88', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                  {task.description}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    <div style={{ borderTop: '1px solid #eef4f7', paddingTop: '10px', display: 'flex', gap: '8px' }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsNotifOpen(false);
+                          setActiveTab('employee-tasks');
+                        }}
+                        className="btn btn-primary"
+                        style={{ flex: 1, fontSize: '12px', padding: '7px', backgroundColor: '#1f4854' }}
+                      >
+                        View My Tasks
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsNotifOpen(false);
+                          setActiveTab('daily-reports');
+                        }}
+                        className="btn btn-secondary"
+                        style={{ flex: 1, fontSize: '12px', padding: '7px' }}
+                      >
+                        Daily Report
                       </button>
                     </div>
                   </>

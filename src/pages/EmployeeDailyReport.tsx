@@ -15,11 +15,13 @@ import {
   ArrowRight,
   TrendingUp,
   History,
-  X
+  X,
+  Trash2
 } from 'lucide-react';
 import {
   getLocalDailyReports,
   saveLocalDailyReport,
+  deleteLocalDailyReport,
   getEmployeeDailyReports,
   type EmployeeDailyReport,
   type UserSession
@@ -56,6 +58,82 @@ export const EmployeeDailyReportModule: React.FC<EmployeeDailyReportProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedReport, setSelectedReport] = useState<EmployeeDailyReport | null>(null);
 
+  // Delete State
+  const [deleteConfirmReport, setDeleteConfirmReport] = useState<EmployeeDailyReport | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteSuccessMsg, setDeleteSuccessMsg] = useState('');
+
+  // Handle Delete Report from Archive
+  const handleDeleteReport = async (report: EmployeeDailyReport) => {
+    if (!report) return;
+    setIsDeleting(true);
+
+    try {
+      const repIdStr = String(report.id);
+      const repDate = report.report_date;
+
+      // 1. Immediately remove from state so the card vanishes instantly from the screen
+      setReports(prev => prev.filter(r => String(r.id) !== repIdStr && r.report_date !== repDate));
+
+      // 2. Track deleted ID in blacklist so it never resurrects
+      try {
+        const rawDeleted = localStorage.getItem('deleted_daily_report_ids');
+        const deletedIds: string[] = rawDeleted ? JSON.parse(rawDeleted) : [];
+        if (!deletedIds.includes(repIdStr)) {
+          deletedIds.push(repIdStr);
+          localStorage.setItem('deleted_daily_report_ids', JSON.stringify(deletedIds));
+        }
+      } catch (e) {
+        console.warn('Failed tracking deleted report id:', e);
+      }
+
+      // 3. Delete from local storage
+      deleteLocalDailyReport(report.id);
+
+      // 4. Delete from Supabase if online and configured
+      if (!isDemo && isSupabaseConfigured() && supabase) {
+        try {
+          await supabase
+            .from('employee_daily_reports')
+            .delete()
+            .or(`id.eq.${report.id},and(employee_id.eq.${report.employee_id},report_date.eq.${report.report_date})`);
+        } catch (err) {
+          console.warn('Supabase delete daily report fallback to local:', err);
+        }
+      }
+
+      // 5. If today's report was deleted, reset today's form fields
+      if (report.report_date === todayStr) {
+        setTodayUpdates('');
+        setChallenges('');
+        setPlanTomorrow('');
+        setHoursWorked('8.0');
+      }
+
+      // 6. Close modals
+      setDeleteConfirmReport(null);
+      if (selectedReport && (String(selectedReport.id) === repIdStr || selectedReport.report_date === repDate)) {
+        setSelectedReport(null);
+      }
+
+      // 7. Refresh archive list with safety filter
+      await fetchReports();
+
+      const dateFmt = new Date(report.report_date).toLocaleDateString(undefined, { dateStyle: 'medium' });
+      setDeleteSuccessMsg(`Report for ${dateFmt} has been deleted successfully.`);
+      setTimeout(() => setDeleteSuccessMsg(''), 4000);
+
+      // 8. Dispatch event so other components sync
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('daily-reports-updated'));
+      }
+    } catch (err) {
+      console.error('Failed to delete daily report:', err);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   // Load employee reports
   const fetchReports = async () => {
     setIsLoading(true);
@@ -80,9 +158,13 @@ export const EmployeeDailyReportModule: React.FC<EmployeeDailyReportProps> = ({
       allReports = getLocalDailyReports();
     }
 
-    // Filter only for this employee
+    const rawDeleted = localStorage.getItem('deleted_daily_report_ids');
+    const deletedIds: string[] = rawDeleted ? JSON.parse(rawDeleted) : [];
+
+    // Filter only for this employee and exclude any deleted reports
     const empId = currentUser.id || 'emp-sneha';
     const myReports = allReports
+      .filter(r => !deletedIds.includes(String(r.id)))
       .filter(r => r.employee_id === empId || r.employee_name.toLowerCase() === currentUser.name.toLowerCase())
       .sort((a, b) => new Date(b.report_date).getTime() - new Date(a.report_date).getTime());
 
@@ -368,6 +450,28 @@ export const EmployeeDailyReportModule: React.FC<EmployeeDailyReportProps> = ({
               </span>
             </div>
 
+            {/* Deletion Feedback Banner */}
+            {deleteSuccessMsg && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '8px 12px',
+                  borderRadius: '8px',
+                  background: 'rgba(239, 68, 68, 0.12)',
+                  border: '1px solid rgba(239, 68, 68, 0.25)',
+                  color: '#ef4444',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  marginBottom: '12px'
+                }}
+              >
+                <CheckCircle2 size={14} />
+                <span>{deleteSuccessMsg}</span>
+              </div>
+            )}
+
             {/* Search Box */}
             <div style={{ position: 'relative', marginBottom: '16px' }}>
               <Search size={14} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--primary))' }} />
@@ -421,18 +525,45 @@ export const EmployeeDailyReportModule: React.FC<EmployeeDailyReportProps> = ({
                           )}
                         </div>
 
-                        <span
-                          style={{
-                            fontSize: '11px',
-                            fontWeight: 700,
-                            padding: '2px 8px',
-                            borderRadius: '10px',
-                            background: report.status === 'Reviewed' ? 'hsl(var(--success) / 0.15)' : 'hsl(var(--primary) / 0.12)',
-                            color: report.status === 'Reviewed' ? 'hsl(var(--success))' : 'hsl(var(--primary))'
-                          }}
-                        >
-                          {report.status}
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span
+                            style={{
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              padding: '2px 8px',
+                              borderRadius: '10px',
+                              background: report.status === 'Reviewed' ? 'hsl(var(--success) / 0.15)' : 'hsl(var(--primary) / 0.12)',
+                              color: report.status === 'Reviewed' ? 'hsl(var(--success))' : 'hsl(var(--primary))'
+                            }}
+                          >
+                            {report.status}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteConfirmReport(report);
+                            }}
+                            style={{
+                              background: 'rgba(239, 68, 68, 0.1)',
+                              border: '1px solid rgba(239, 68, 68, 0.3)',
+                              color: '#ef4444',
+                              borderRadius: '6px',
+                              padding: '3px 7px',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              transition: 'all 0.15s ease'
+                            }}
+                            title="Delete this report from archive"
+                          >
+                            <Trash2 size={12} />
+                            <span>Delete</span>
+                          </button>
+                        </div>
                       </div>
 
                       {/* Snippet of updates */}
@@ -458,23 +589,51 @@ export const EmployeeDailyReportModule: React.FC<EmployeeDailyReportProps> = ({
                           {report.hours_worked || 8} hrs logged
                         </span>
 
-                        <button
-                          type="button"
-                          onClick={() => setSelectedReport(report)}
-                          className="btn btn-ghost"
-                          style={{
-                            padding: '4px 10px',
-                            fontSize: '11.5px',
-                            fontWeight: 700,
-                            color: 'hsl(var(--primary))',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px'
-                          }}
-                        >
-                          <Eye size={13} />
-                          <span>View Details</span>
-                        </button>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedReport(report)}
+                            className="btn btn-ghost"
+                            style={{
+                              padding: '4px 9px',
+                              fontSize: '11.5px',
+                              fontWeight: 700,
+                              color: 'hsl(var(--primary))',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}
+                          >
+                            <Eye size={13} />
+                            <span>View Details</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteConfirmReport(report);
+                            }}
+                            style={{
+                              padding: '4px 10px',
+                              fontSize: '11.5px',
+                              fontWeight: 700,
+                              color: '#ef4444',
+                              backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                              border: '1px solid rgba(239, 68, 68, 0.3)',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease'
+                            }}
+                            title="Delete report from archive"
+                          >
+                            <Trash2 size={13} />
+                            <span>Delete Report</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -589,7 +748,33 @@ export const EmployeeDailyReportModule: React.FC<EmployeeDailyReportProps> = ({
 
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px', paddingTop: '14px', borderTop: '1px solid hsl(var(--card-border))' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', paddingTop: '14px', borderTop: '1px solid hsl(var(--card-border))' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  const toDelete = selectedReport;
+                  setSelectedReport(null);
+                  setDeleteConfirmReport(toDelete);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 14px',
+                  borderRadius: '8px',
+                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  color: '#ef4444',
+                  fontWeight: 700,
+                  fontSize: '12.5px',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.15s ease'
+                }}
+              >
+                <Trash2 size={14} />
+                <span>Delete Report</span>
+              </button>
+
               <button
                 type="button"
                 onClick={() => setSelectedReport(null)}
@@ -597,6 +782,136 @@ export const EmployeeDailyReportModule: React.FC<EmployeeDailyReportProps> = ({
                 style={{ padding: '8px 18px' }}
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmReport && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.65)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            padding: '20px'
+          }}
+          onClick={() => !isDeleting && setDeleteConfirmReport(null)}
+        >
+          <div
+            className="glass-card"
+            style={{
+              maxWidth: '480px',
+              width: '100%',
+              padding: '24px',
+              backgroundColor: 'hsl(var(--card))',
+              borderRadius: '16px',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
+              border: '1px solid hsl(var(--card-border))'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px', marginBottom: '16px' }}>
+              <div
+                style={{
+                  width: '42px',
+                  height: '42px',
+                  borderRadius: '10px',
+                  backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                  color: '#ef4444',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0
+                }}
+              >
+                <Trash2 size={22} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <h3 style={{ fontSize: '18px', fontWeight: 800, color: 'hsl(var(--foreground))', margin: '0 0 6px 0' }}>
+                  Delete Work Report?
+                </h3>
+                <p style={{ fontSize: '13px', color: 'hsl(var(--muted))', margin: 0, lineHeight: 1.5 }}>
+                  Are you sure you want to delete the daily work report for{' '}
+                  <strong style={{ color: 'hsl(var(--foreground))' }}>
+                    {new Date(deleteConfirmReport.report_date).toLocaleDateString(undefined, { dateStyle: 'full' })}
+                  </strong>
+                  ? This will permanently remove it from your report archive.
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setDeleteConfirmReport(null)}
+                className="btn btn-ghost btn-icon"
+                style={{ width: '28px', height: '28px', color: 'hsl(var(--muted))' }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Preview of report snippet */}
+            <div
+              style={{
+                padding: '12px 14px',
+                backgroundColor: 'hsl(var(--background))',
+                borderRadius: '8px',
+                border: '1px solid hsl(var(--card-border))',
+                marginBottom: '20px',
+                fontSize: '12.5px',
+                color: 'hsl(var(--foreground))',
+                lineHeight: 1.5,
+                maxHeight: '90px',
+                overflowY: 'auto'
+              }}
+            >
+              <div style={{ fontWeight: 700, fontSize: '11px', color: 'hsl(var(--muted))', marginBottom: '4px' }}>
+                REPORT PREVIEW:
+              </div>
+              {deleteConfirmReport.today_updates}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setDeleteConfirmReport(null)}
+                className="btn btn-secondary"
+                style={{ padding: '8px 18px', fontSize: '13px', fontWeight: 600 }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => handleDeleteReport(deleteConfirmReport)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 18px',
+                  borderRadius: '8px',
+                  backgroundColor: '#ef4444',
+                  color: '#ffffff',
+                  border: 'none',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  cursor: isDeleting ? 'not-allowed' : 'pointer',
+                  opacity: isDeleting ? 0.7 : 1,
+                  boxShadow: '0 2px 8px rgba(239, 68, 68, 0.35)'
+                }}
+              >
+                <Trash2 size={14} />
+                <span>{isDeleting ? 'Deleting...' : 'Delete Report'}</span>
               </button>
             </div>
           </div>

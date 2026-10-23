@@ -1,12 +1,19 @@
+import { supabase, isSupabaseConfigured } from './supabaseClient';
+
+let inMemoryApiKey = (import.meta.env.VITE_RESEND_API_KEY as string) || '';
+
 export const getResendApiKey = (): string => {
-  return localStorage.getItem('resend_api_key') || (import.meta.env.VITE_RESEND_API_KEY as string) || '';
+  return inMemoryApiKey || (import.meta.env.VITE_RESEND_API_KEY as string) || '';
 };
 
 export const setResendApiKey = (key: string): void => {
-  if (key && key.trim()) {
-    localStorage.setItem('resend_api_key', key.trim());
-  } else {
-    localStorage.removeItem('resend_api_key');
+  inMemoryApiKey = key ? key.trim() : '';
+  if (isSupabaseConfigured() && supabase && key) {
+    supabase.from('app_settings').upsert({
+      key: 'resend_api_key',
+      value: key.trim(),
+      updated_at: new Date().toISOString()
+    }).then();
   }
 };
 

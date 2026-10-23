@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
-import { RotateCcw, AlertTriangle, Mail, Key, CheckCircle2, AlertCircle, Send } from 'lucide-react';
+import { RotateCcw, AlertTriangle, Mail, Key, CheckCircle2, AlertCircle, Send, Bell, Monitor } from 'lucide-react';
 import { resetLocalDatabase } from '../lib/localDatabase';
 import { getResendApiKey, setResendApiKey, sendTaskEmail } from '../lib/emailService';
+import { triggerDesktopNotification, checkAndNotifyDueReminders } from '../lib/desktopNotification';
+
+import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
 
 interface SettingsProps {
   onDatabaseUpdate: () => void;
@@ -20,17 +23,42 @@ export const SettingsPage: React.FC<SettingsProps> = ({
   const [isTesting, setIsTesting] = useState<boolean>(false);
   const [testStatus, setTestStatus] = useState<{ success?: boolean; message?: string } | null>(null);
 
+  // Load API key from Supabase DB on mount
+  React.useEffect(() => {
+    if (isSupabaseConfigured() && supabase) {
+      supabase.from('app_settings').select('value').eq('key', 'resend_api_key').single().then(res => {
+        if (res.data?.value) {
+          setApiKey(res.data.value);
+          setResendApiKey(res.data.value);
+        }
+      });
+    }
+  }, []);
+
   const handleResetDatabase = () => {
-    if (window.confirm('Are you sure you want to restore the simulation database to defaults? All custom enquiries and courses will be overwritten.')) {
+    if (window.confirm('Are you sure you want to restore the local database cache to defaults?')) {
       resetLocalDatabase();
       onDatabaseUpdate();
-      alert('Local database successfully reset to default state.');
+      alert('Local database cache successfully refreshed.');
     }
   };
 
-  const handleSaveApiKey = (e: React.FormEvent) => {
+  const handleSaveApiKey = async (e: React.FormEvent) => {
     e.preventDefault();
     setResendApiKey(apiKey.trim());
+
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        await supabase.from('app_settings').upsert({
+          key: 'resend_api_key',
+          value: apiKey.trim(),
+          updated_at: new Date().toISOString()
+        });
+      } catch (err) {
+        console.warn('Failed to save to Supabase app_settings:', err);
+      }
+    }
+
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 3000);
   };
@@ -68,21 +96,21 @@ export const SettingsPage: React.FC<SettingsProps> = ({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '800px' }}>
       
-      {/* Simulation Toggle */}
+      {/* Live DB Status Banner */}
       <div className="glass-card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '4px' }}>Execution Mode</h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+              <span style={{ display: 'inline-block', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: 'hsl(var(--success))', boxShadow: '0 0 10px hsl(var(--success))' }} />
+              <h3 style={{ fontSize: '16px', fontWeight: 700 }}>Database Mode: Live Supabase Backend</h3>
+            </div>
             <p style={{ fontSize: '13px', color: 'hsl(var(--muted))' }}>
-              Toggle between the Client-side AI Simulation and Live Supabase backend.
+              All records (leads, students, courses, employees, tasks, reports, and settings) are fetched and saved directly in your Supabase PostgreSQL database.
             </p>
           </div>
-          <button 
-            onClick={() => setIsDemo(!isDemo)} 
-            className={`btn ${isDemo ? 'btn-primary' : 'btn-secondary'}`}
-          >
-            {isDemo ? 'Switch to Supabase Live' : 'Switch to Local Simulation'}
-          </button>
+          <span style={{ padding: '6px 14px', borderRadius: '20px', fontSize: '12px', fontWeight: 700, backgroundColor: 'hsl(var(--success) / 0.15)', color: 'hsl(var(--success))', border: '1px solid hsl(var(--success) / 0.3)' }}>
+            PostgreSQL Live
+          </span>
         </div>
       </div>
 
@@ -167,6 +195,61 @@ export const SettingsPage: React.FC<SettingsProps> = ({
               <span>{testStatus.message}</span>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Desktop App Notifications & System Alerts */}
+      <div className="glass-card" style={{ border: '1px solid hsl(var(--primary) / 0.2)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', color: 'hsl(var(--foreground))', margin: 0 }}>
+            <Bell size={18} style={{ color: 'hsl(var(--primary))' }} />
+            Desktop Notifications & Reminders
+          </h3>
+          <span style={{
+            fontSize: '11px',
+            fontWeight: 700,
+            padding: '3px 10px',
+            borderRadius: '9999px',
+            backgroundColor: typeof window !== 'undefined' && (window as any).electronAPI ? 'rgba(27, 163, 124, 0.15)' : 'rgba(71, 121, 135, 0.15)',
+            color: typeof window !== 'undefined' && (window as any).electronAPI ? '#1ba37c' : '#477987',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '5px'
+          }}>
+            <Monitor size={12} />
+            {typeof window !== 'undefined' && (window as any).electronAPI ? 'Native Windows Desktop Mode' : 'Web Browser Mode'}
+          </span>
+        </div>
+        <p style={{ fontSize: '13px', color: 'hsl(var(--muted))', marginBottom: '16px', lineHeight: 1.45 }}>
+          The desktop app automatically checks for due lead follow-ups and note alerts in the background. You can test your desktop alert system or scan for due reminders immediately below.
+        </p>
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={async () => {
+              await triggerDesktopNotification(
+                '🔔 Global Minds Lead Tracker',
+                'Desktop notification test successful! Your reminder alert system is active.'
+              );
+            }}
+            className="btn btn-secondary"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}
+          >
+            <Bell size={15} />
+            Send Test Desktop Alert
+          </button>
+
+          <button
+            type="button"
+            onClick={async () => {
+              await checkAndNotifyDueReminders('admin', true);
+            }}
+            className="btn btn-primary"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '13px', backgroundColor: '#1f4854', color: '#ffffff' }}
+          >
+            <CheckCircle2 size={15} />
+            Scan & Notify Due Reminders Now
+          </button>
         </div>
       </div>
 

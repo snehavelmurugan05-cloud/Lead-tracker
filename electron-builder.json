@@ -1,0 +1,26 @@
+{
+  "appId": "com.globalminds.leadtracker",
+  "productName": "Global Minds Lead Tracker",
+  "directories": {
+    "output": "C:/Users/sneha/AppData/Local/Temp/global-minds-build"
+  },
+  "files": [
+    "dist/**/*",
+    "electron/**/*",
+    "public/**/*"
+  ],
+  "win": {
+    "target": [
+      "portable",
+      "nsis"
+    ],
+    "icon": "public/icon.ico"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "Global Minds Lead Tracker"
+  }
+}

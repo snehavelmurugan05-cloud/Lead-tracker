@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Clock, BookOpen, Calendar, Edit2, Trash2, X, Check, Mic, ChevronDown, CheckCircle2 } from 'lucide-react';
+import { Send, Clock, BookOpen, Calendar, Edit2, Trash2, X, Check, Mic, ChevronDown, CheckCircle2, RotateCcw } from 'lucide-react';
 import { isSupabaseConfigured, supabase } from '../lib/supabaseClient';
 import { getLocalNotes, saveLocalNote, updateLocalNote, deleteLocalNote, type Note, type UserSession } from '../lib/localDatabase';
 
@@ -16,13 +16,14 @@ interface NotesProps {
   searchQuery?: string;
 }
 
-const Notes: React.FC<NotesProps> = ({ onUpdate, searchQuery }) => {
+const Notes: React.FC<NotesProps> = ({ currentUser, onUpdate, searchQuery }) => {
   const [notes, setNotes] = useState<Note[]>([]);
   const [currentNote, setCurrentNote] = useState('');
   const [reminderDate, setReminderDate] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<AdminActionStatus>('Pending');
   const [statusFilter, setStatusFilter] = useState<'All' | AdminActionStatus>('All');
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [shouldAutoSave, setShouldAutoSave] = useState(false);
   const recognitionRef = useRef<any>(null);
@@ -117,6 +118,10 @@ const Notes: React.FC<NotesProps> = ({ onUpdate, searchQuery }) => {
     };
   }, [openDropdownId]);
 
+  const isSalesUser = currentUser?.role === 'sales';
+  const targetRole = isSalesUser ? 'sales' : 'admin';
+  const targetCreator = isSalesUser ? (currentUser?.name || 'Sales Desk') : 'Admin';
+
   const fetchNotes = async () => {
     setIsLoading(true);
     if (isSupabaseConfigured() && supabase) {
@@ -124,29 +129,32 @@ const Notes: React.FC<NotesProps> = ({ onUpdate, searchQuery }) => {
         const { data, error } = await supabase
           .from('notes')
           .select('*')
-          .eq('role', 'admin')
+          .eq('role', targetRole)
           .order('timestamp', { ascending: false });
           
         if (!error && data) {
-          const cleanNotes = (data as Note[]).filter(
-            n => n.role !== 'sales' && !String(n.id).startsWith('sales-note-') && n.created_by !== 'Sales Desk'
-          );
+          const cleanNotes = (data as Note[]).filter(n => {
+            if (isSalesUser) {
+              return n.role === 'sales' && n.created_by !== 'Admin';
+            }
+            return n.role !== 'sales' && !String(n.id).startsWith('sales-note-') && n.created_by !== 'Sales Desk';
+          });
           setNotes(cleanNotes);
         } else {
-          setNotes(getLocalNotes('admin'));
+          setNotes(getLocalNotes(targetRole));
         }
       } catch (err) {
-        setNotes(getLocalNotes('admin'));
+        setNotes(getLocalNotes(targetRole));
       }
     } else {
-      setNotes(getLocalNotes('admin'));
+      setNotes(getLocalNotes(targetRole));
     }
     setIsLoading(false);
   };
 
   useEffect(() => {
     fetchNotes();
-  }, []);
+  }, [currentUser]);
 
   const handleStatusChange = async (note: Note, newStatus: AdminActionStatus) => {
     const isCompleted = newStatus === 'Completed';
@@ -155,7 +163,7 @@ const Notes: React.FC<NotesProps> = ({ onUpdate, searchQuery }) => {
       is_completed: isCompleted
     };
 
-    updateLocalNote(note.id, updates, 'admin');
+    updateLocalNote(note.id, updates, targetRole);
     setNotes(prev => prev.map(n => String(n.id) === String(note.id) ? { ...n, ...updates } : n));
     setOpenDropdownId(null);
     onUpdate?.();
@@ -173,54 +181,34 @@ const Notes: React.FC<NotesProps> = ({ onUpdate, searchQuery }) => {
   };
 
   const handleAddNote = async () => {
-    if (!currentNote.trim()) return;
+    if (isSubmitting || !currentNote.trim()) return;
     
-    const isCompleted = selectedStatus === 'Completed';
-    const newNoteData = {
-      content: currentNote.trim(),
-      reminderDate: reminderDate || undefined,
-      action_item: selectedStatus,
-      is_completed: isCompleted,
-      role: 'admin',
-      created_by: 'Admin'
-    };
-    
-    if (isSupabaseConfigured() && supabase) {
-      try {
-        const { data, error } = await supabase
-          .from('notes')
-          .insert([
-            { 
-              content: newNoteData.content, 
-              reminderDate: newNoteData.reminderDate || null,
-              timestamp: new Date().toISOString(),
-              action_item: newNoteData.action_item,
-              is_completed: newNoteData.is_completed,
-              role: 'admin',
-              created_by: 'Admin'
-            }
-          ])
-          .select();
-          
-        if (!error && data && data.length > 0) {
-          setNotes([data[0] as Note, ...notes]);
-        } else {
-          const localNote = saveLocalNote(newNoteData, 'admin');
-          setNotes([localNote, ...notes]);
-        }
-      } catch (err) {
-        const localNote = saveLocalNote(newNoteData, 'admin');
-        setNotes([localNote, ...notes]);
-      }
-    } else {
-      const localNote = saveLocalNote(newNoteData, 'admin');
-      setNotes([localNote, ...notes]);
+    setIsSubmitting(true);
+    try {
+      const isCompleted = selectedStatus === 'Completed';
+      const noteId = 'note-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6);
+      const nowIso = new Date().toISOString();
+      const newNoteData = {
+        id: noteId,
+        content: currentNote.trim(),
+        reminderDate: reminderDate || undefined,
+        action_item: selectedStatus,
+        is_completed: isCompleted,
+        role: targetRole,
+        created_by: targetCreator,
+        timestamp: nowIso
+      };
+      
+      const saved = saveLocalNote(newNoteData, targetRole);
+      setNotes(prev => [saved, ...prev.filter(n => n.id !== saved.id && n.content.trim().toLowerCase() !== saved.content.trim().toLowerCase())]);
+      
+      setCurrentNote('');
+      setReminderDate('');
+      setSelectedStatus('Pending');
+      onUpdate?.();
+    } finally {
+      setIsSubmitting(false);
     }
-    
-    setCurrentNote('');
-    setReminderDate('');
-    setSelectedStatus('Pending');
-    onUpdate?.();
   };
 
   const startEditing = (note: Note) => {
@@ -397,8 +385,8 @@ const Notes: React.FC<NotesProps> = ({ onUpdate, searchQuery }) => {
                 </select>
               </div>
 
-              {/* Reminder Date Selector */}
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }} title="Set a reminder date">
+              {/* Reminder / Follow-up Date Selector (Optional) */}
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }} title="Follow-up Date (Optional - leave blank if none)">
                 <input 
                   type="date"
                   value={reminderDate}
@@ -407,6 +395,7 @@ const Notes: React.FC<NotesProps> = ({ onUpdate, searchQuery }) => {
                   style={{
                     padding: '8px 12px',
                     paddingLeft: '32px',
+                    paddingRight: reminderDate ? '28px' : '68px',
                     borderRadius: '8px',
                     border: '1px solid hsl(var(--card-border))',
                     background: 'hsl(var(--card))',
@@ -418,8 +407,35 @@ const Notes: React.FC<NotesProps> = ({ onUpdate, searchQuery }) => {
                     fontFamily: 'inherit'
                   }}
                   className="reminder-date-input"
+                  title="Follow-up Date (Optional)"
                 />
                 <Calendar size={14} style={{ position: 'absolute', left: '10px', color: 'hsl(var(--muted-foreground))', pointerEvents: 'none' }} />
+                {reminderDate ? (
+                  <button
+                    type="button"
+                    onClick={() => setReminderDate('')}
+                    style={{
+                      position: 'absolute',
+                      right: '8px',
+                      background: 'none',
+                      border: 'none',
+                      color: 'hsl(var(--muted-foreground))',
+                      cursor: 'pointer',
+                      padding: '2px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRadius: '50%'
+                    }}
+                    title="Clear date (leave optional)"
+                  >
+                    <X size={13} />
+                  </button>
+                ) : (
+                  <span style={{ position: 'absolute', right: '10px', fontSize: '11px', color: 'hsl(var(--muted-foreground))', pointerEvents: 'none', opacity: 0.75 }}>
+                    (Optional)
+                  </span>
+                )}
               </div>
 
               {/* Voice-to-text Mic Button */}
@@ -445,6 +461,7 @@ const Notes: React.FC<NotesProps> = ({ onUpdate, searchQuery }) => {
               <button
                 type="button"
                 onClick={handleAddNote}
+                disabled={isSubmitting || !currentNote.trim()}
                 className="btn btn-primary"
                 style={{
                   padding: '8px 20px',
@@ -452,13 +469,12 @@ const Notes: React.FC<NotesProps> = ({ onUpdate, searchQuery }) => {
                   display: 'flex',
                   alignItems: 'center',
                   gap: '8px',
-                  opacity: currentNote.trim() ? 1 : 0.6,
+                  opacity: (isSubmitting || !currentNote.trim()) ? 0.6 : 1,
+                  cursor: (isSubmitting || !currentNote.trim()) ? 'not-allowed' : 'pointer',
                   transition: 'all 0.2s ease',
-                  cursor: currentNote.trim() ? 'pointer' : 'not-allowed'
                 }}
-                disabled={!currentNote.trim()}
               >
-                <span>Save Note</span>
+                <span>{isSubmitting ? 'Saving...' : 'Save Note'}</span>
                 <Send size={16} />
               </button>
             </div>
@@ -477,8 +493,31 @@ const Notes: React.FC<NotesProps> = ({ onUpdate, searchQuery }) => {
             Recent Notes ({filteredNotes.length})
           </h3>
 
-          {/* Action Item Status Filter Buttons */}
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          {/* Action Item Status Filter Buttons & Refresh */}
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <button
+              type="button"
+              onClick={fetchNotes}
+              disabled={isLoading}
+              className="btn btn-ghost"
+              style={{
+                padding: '5px 12px',
+                borderRadius: '20px',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: isLoading ? 'not-allowed' : 'pointer',
+                backgroundColor: 'hsl(var(--card))',
+                color: 'hsl(var(--foreground))',
+                border: '1px solid hsl(var(--card-border))',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px'
+              }}
+              title="Refresh notes from database"
+            >
+              <RotateCcw size={12} style={{ animation: isLoading ? 'spin 1s linear infinite' : 'none' }} />
+              <span>{isLoading ? 'Refreshing...' : 'Refresh Table'}</span>
+            </button>
             <button
               type="button"
               onClick={() => { setStatusFilter('All'); setCurrentPage(1); }}
@@ -605,14 +644,37 @@ const Notes: React.FC<NotesProps> = ({ onUpdate, searchQuery }) => {
                         {editingNoteId === note.id ? (
                           <>
                             <td style={{ verticalAlign: 'top' }}>
-                              <input 
-                                type="date"
-                                value={editReminderDate}
-                                min={new Date().toISOString().split('T')[0]}
-                                onChange={(e) => setEditReminderDate(e.target.value)}
-                                className="form-input reminder-date-input"
-                                style={{ padding: '6px', fontSize: '12px', width: '120px' }}
-                              />
+                              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                                <input 
+                                  type="date"
+                                  value={editReminderDate}
+                                  min={new Date().toISOString().split('T')[0]}
+                                  onChange={(e) => setEditReminderDate(e.target.value)}
+                                  className="form-input reminder-date-input"
+                                  style={{ padding: '6px', fontSize: '12px', width: '130px', paddingRight: editReminderDate ? '24px' : '6px' }}
+                                  title="Follow-up Date (Optional)"
+                                />
+                                {editReminderDate && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditReminderDate('')}
+                                    style={{
+                                      position: 'absolute',
+                                      right: '4px',
+                                      background: 'none',
+                                      border: 'none',
+                                      color: 'hsl(var(--muted-foreground))',
+                                      cursor: 'pointer',
+                                      padding: '2px',
+                                      display: 'flex',
+                                      alignItems: 'center'
+                                    }}
+                                    title="Clear date"
+                                  >
+                                    <X size={12} />
+                                  </button>
+                                )}
+                              </div>
                             </td>
                             <td style={{ verticalAlign: 'top' }}>
                               <textarea
