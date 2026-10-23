@@ -1,4 +1,4 @@
-import { getLocalEnquiries, getLocalNotes } from './localDatabase';
+import { getLocalEnquiries, getLocalNotes, resolveNoteStage } from './localDatabase';
 
 let lastNotifiedTime = 0;
 
@@ -60,18 +60,21 @@ export async function checkAndNotifyDueReminders(role: 'admin' | 'sales' | strin
     const todayStr = new Date().toISOString().split('T')[0];
     const nowDate = new Date();
 
-    // 1. Check Due Lead Enquiries
-    const enquiries = getLocalEnquiries();
+    // 1. Check Due Lead Enquiries (ADMIN ONLY - Sales handles client leads & sales notes)
+    const isSales = role === 'sales';
+    const enquiries = !isSales ? getLocalEnquiries() : [];
     const dueLeads = enquiries.filter(e => {
       const isUnresolved = e.interested === null || e.follow_up_done === null || e.can_follow_up === null;
       if (!isUnresolved || !e.next_reminder_at) return false;
       return new Date(e.next_reminder_at) <= nowDate;
     });
 
-    // 2. Check Due Notes
+    // 2. Check Due Notes (Properly exclude converted / completed notes)
     const notes = getLocalNotes(role);
     const dueNotes = notes.filter(n => {
       if (n.is_completed || !n.reminderDate) return false;
+      if (n.stage === 'Converted' || n.stage === 'Customer Onboarding' || n.action_item === 'Converted') return false;
+      if (resolveNoteStage(n) === 'Customer Onboarding') return false;
       return n.reminderDate <= todayStr;
     });
 

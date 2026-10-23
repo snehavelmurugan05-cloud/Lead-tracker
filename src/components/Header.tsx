@@ -28,11 +28,13 @@ import {
   getLocalEmployeeTasks,
   resolveNoteStage,
   updateLocalNote,
+  syncLocalSalesNotes,
   type Note,
   type Enquiry,
   type Course,
   type EmployeeTask
 } from '../lib/localDatabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
 
 interface HeaderProps {
   activeTab: string;
@@ -121,16 +123,37 @@ export const Header: React.FC<HeaderProps> = ({
   const [salesNotes, setSalesNotes] = useState<Note[]>(() => isSales ? getLocalNotes('sales') : []);
 
   useEffect(() => {
-    const syncSalesNotes = () => {
+    const syncSalesNotes = async () => {
       if (isSales) {
+        if (isSupabaseConfigured() && supabase) {
+          try {
+            const { data } = await supabase
+              .from('notes')
+              .select('*')
+              .eq('role', 'sales')
+              .order('timestamp', { ascending: false });
+            if (data && data.length > 0) {
+              const strictlySales = (data as Note[]).filter(
+                n => n.role === 'sales' && n.created_by !== 'Admin' && !String(n.id).startsWith('sales-note-today-')
+              );
+              if (strictlySales.length > 0) {
+                syncLocalSalesNotes(strictlySales);
+              }
+            }
+          } catch (err) {
+            // fallback to local storage
+          }
+        }
         setSalesNotes(getLocalNotes('sales'));
       }
     };
     syncSalesNotes();
     window.addEventListener('sales-notes-updated', syncSalesNotes);
+    window.addEventListener('notes-updated', syncSalesNotes);
     window.addEventListener('storage', syncSalesNotes);
     return () => {
       window.removeEventListener('sales-notes-updated', syncSalesNotes);
+      window.removeEventListener('notes-updated', syncSalesNotes);
       window.removeEventListener('storage', syncSalesNotes);
     };
   }, [isSales, refreshTrigger]);
@@ -270,8 +293,18 @@ export const Header: React.FC<HeaderProps> = ({
   // ----------------------------------------------------
   const todayDateStr = new Date().toISOString().split('T')[0];
 
+  // Helper to determine if a stage is converted / completed
+  const isCompletedStage = (stg: string | null | undefined) => 
+    Boolean(stg && (stg === 'Customer Onboarding' || stg === 'Converted'));
+
   // Active uncompleted sales notes
-  const activeSalesNotes = isSales ? salesNotes.filter(n => !n.is_completed && n.stage !== 'Converted') : [];
+  const activeSalesNotes = isSales ? salesNotes.filter(n => {
+    if (n.is_completed) return false;
+    if (n.stage === 'Converted' || n.stage === 'Customer Onboarding') return false;
+    if (n.action_item === 'Converted') return false;
+    if (isCompletedStage(resolveNoteStage(n))) return false;
+    return true;
+  }) : [];
 
   // Grouped notes
   const overdueSalesNotes = activeSalesNotes
@@ -304,29 +337,56 @@ export const Header: React.FC<HeaderProps> = ({
   else if (salesFilter === 'upcoming') displayedSalesReminders = upcomingSalesNotes;
 
   // Notification action handlers
-  const handleMarkConverted = (e: React.MouseEvent, noteId: string) => {
+  const handleMarkConverted = async (e: React.MouseEvent, noteId: string) => {
     e.stopPropagation();
+    // 1. Direct update to Supabase DB
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        await supabase.from('notes').update({
+          is_completed: true,
+          stage: 'Converted',
+          action_item: 'Converted'
+        }).eq('id', noteId);
+      } catch (err) {
+        console.error('Error marking converted in Supabase:', err);
+      }
+    }
+    // 2. Update local storage
     updateLocalNote(noteId, { is_completed: true, stage: 'Converted', action_item: 'Converted' }, 'sales');
     setSalesNotes(getLocalNotes('sales'));
     setQuickFeedback('Marked as Converted!');
     setTimeout(() => setQuickFeedback(null), 2500);
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('sales-notes-updated'));
+      window.dispatchEvent(new CustomEvent('notes-updated'));
     }
     if (onUpdate) onUpdate();
   };
 
-  const handlePostponeTwoDays = (e: React.MouseEvent, note: Note) => {
+  const handlePostponeTwoDays = async (e: React.MouseEvent, note: Note) => {
     e.stopPropagation();
     const base = note.reminderDate && note.reminderDate > todayDateStr ? new Date(note.reminderDate) : new Date();
     base.setDate(base.getDate() + 2);
     const newDateStr = base.toISOString().split('T')[0];
+    
+    // 1. Direct update to Supabase DB
+    if (isSupabaseConfigured() && supabase) {
+      try {
+        await supabase.from('notes').update({
+          reminderDate: newDateStr
+        }).eq('id', note.id);
+      } catch (err) {
+        console.error('Error postponing reminder in Supabase:', err);
+      }
+    }
+    // 2. Update local storage
     updateLocalNote(note.id, { reminderDate: newDateStr }, 'sales');
     setSalesNotes(getLocalNotes('sales'));
     setQuickFeedback(`Postponed 2 days (Due ${newDateStr})`);
     setTimeout(() => setQuickFeedback(null), 2500);
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('sales-notes-updated'));
+      window.dispatchEvent(new CustomEvent('notes-updated'));
     }
     if (onUpdate) onUpdate();
   };
@@ -405,9 +465,9 @@ export const Header: React.FC<HeaderProps> = ({
     ? adminNotes.filter(n => n.reminderDate && !n.is_completed)
     : [];
 
-  // Notification badge count - Strictly segregated by role
+  // Notification badge count - Strictly segregated by role (urgent due + overdue items)
   const effectiveNotificationCount = isSales
-    ? allSalesReminders.length
+    ? (overdueSalesNotes.length + todaySalesNotes.length + otherActionNotes.length)
     : isEmployee
     ? myEmployeePendingTasks.length
     : (pendingCount > 0 ? pendingCount : (adminDueEnquiries.length + adminDueNotes.length));

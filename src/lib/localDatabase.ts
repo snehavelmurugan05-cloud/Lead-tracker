@@ -183,11 +183,18 @@ export const normalizeSalesNote = (note: Note): Note => {
   const resolvedStage = resolveNoteStage(note) || (note.stage && note.stage !== 'null' && note.stage !== 'None' ? (note.stage as NoteStage) : undefined);
   const resolvedActionItem = note.action_item || (resolvedCategory ? `Workstream: ${resolvedCategory}` : (resolvedStage || undefined));
 
+  const isCompleted = note.is_completed === true ||
+    resolvedStage === 'Customer Onboarding' ||
+    note.stage === 'Converted' ||
+    note.stage === 'Customer Onboarding' ||
+    note.action_item === 'Converted';
+
   return {
     ...note,
     category: resolvedCategory,
     stage: resolvedStage,
-    action_item: resolvedActionItem
+    action_item: resolvedActionItem,
+    is_completed: isCompleted
   };
 };
 
@@ -1384,6 +1391,10 @@ export function updateLocalNote(id: string, updates: Partial<Note>, role?: 'admi
 
       const finalActionItem = finalCategory ? `Workstream: ${finalCategory}` : (finalStage || undefined);
 
+      const isCompleted = updates.is_completed !== undefined
+        ? updates.is_completed
+        : (finalStage === 'Customer Onboarding' || finalStage === 'Converted' || updates.stage === 'Converted' || updates.action_item === 'Converted' || current.is_completed || false);
+
       const updated: Note = {
         ...current,
         ...updates,
@@ -1391,7 +1402,7 @@ export function updateLocalNote(id: string, updates: Partial<Note>, role?: 'admi
         stage: finalStage,
         category: finalCategory,
         action_item: finalActionItem,
-        is_completed: finalStage === 'Customer Onboarding' || finalStage === 'Converted' || finalStage === 'Partnership Followup' || (updates.is_completed !== undefined ? updates.is_completed : current.is_completed)
+        is_completed: isCompleted
       };
       salesNotes[index] = updated;
       setStorageItem(SALES_NOTES_STORAGE_KEY, salesNotes);
@@ -1405,13 +1416,26 @@ export function updateLocalNote(id: string, updates: Partial<Note>, role?: 'admi
           stage: updated.stage || null,
           action_item: updated.action_item || null,
           reminderDate: updated.reminderDate || null,
-          is_completed: updated.is_completed || false
+          is_completed: updated.is_completed ?? false
         }).eq('id', id).then(res => {
           if (res.error) console.warn('Supabase updateLocalNote sync error:', res.error);
         });
       }
 
       return updated;
+    } else {
+      if (isSupabaseConfigured() && supabase) {
+        supabase.from('notes').update({
+          ...(updates.content ? { content: updates.content } : {}),
+          ...(updates.stage !== undefined ? { stage: updates.stage || null } : {}),
+          ...(updates.action_item !== undefined ? { action_item: updates.action_item || null } : {}),
+          ...(updates.reminderDate !== undefined ? { reminderDate: updates.reminderDate || null } : {}),
+          ...(updates.is_completed !== undefined ? { is_completed: updates.is_completed } : {})
+        }).eq('id', id).then(res => {
+          if (res.error) console.warn('Supabase fallback update error:', res.error);
+        });
+      }
+      return { id, content: '', role: 'sales', timestamp: new Date().toISOString(), ...updates } as Note;
     }
   } else {
     const adminNotes = getLocalNotes('admin');

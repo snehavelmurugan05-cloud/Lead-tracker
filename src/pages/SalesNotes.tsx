@@ -295,6 +295,8 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
     const finalCategory = hasCategory ? (catCandidate as SalesWorkstreamCategory) : undefined;
     const finalActionItem = finalCategory ? `Workstream: ${finalCategory}` : (finalStage || null);
 
+    const isCompleted = Boolean(finalStage === 'Customer Onboarding' || finalStage === 'Converted' || finalStage === 'Partnership Followup' || editingNote.is_completed);
+
     if (supabase) {
       try {
         const { error: updateError } = await supabase.from('notes').update({
@@ -302,7 +304,7 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
           stage: finalStage || null,
           action_item: finalActionItem,
           reminderDate: editingNote.reminderDate || null,
-          is_completed: finalStage === 'Customer Onboarding' || finalStage === 'Converted' || finalStage === 'Partnership Followup'
+          is_completed: isCompleted
         }).eq('id', editingNote.id);
         if (updateError) {
           console.error('Error updating sales note in Supabase:', updateError);
@@ -317,7 +319,8 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
       stage: finalStage,
       action_item: finalActionItem || undefined,
       category: finalCategory,
-      reminderDate: editingNote.reminderDate || undefined
+      reminderDate: editingNote.reminderDate || undefined,
+      is_completed: isCompleted
     }, 'sales');
 
     await fetchSalesNotes();

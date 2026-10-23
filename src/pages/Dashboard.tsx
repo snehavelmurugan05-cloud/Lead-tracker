@@ -353,6 +353,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const finalCategory = hasCategory ? (catCandidate as SalesWorkstreamCategory) : undefined;
     const finalActionItem = finalCategory ? `Workstream: ${finalCategory}` : (finalStage || null);
 
+    const isCompleted = Boolean(finalStage === 'Customer Onboarding' || finalStage === 'Converted' || finalStage === 'Partnership Followup' || editingSalesNote.is_completed);
+
     if (supabase) {
       try {
         const { error: updateError } = await supabase.from('notes').update({
@@ -360,7 +362,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           stage: finalStage || null,
           action_item: finalActionItem,
           reminderDate: editingSalesNote.reminderDate || null,
-          is_completed: finalStage === 'Customer Onboarding' || finalStage === 'Converted' || finalStage === 'Partnership Followup'
+          is_completed: isCompleted
         }).eq('id', editingSalesNote.id);
         if (updateError) {
           console.error('Error updating sales note in Supabase:', updateError);
@@ -375,7 +377,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
       stage: finalStage,
       action_item: finalActionItem || undefined,
       category: finalCategory,
-      reminderDate: editingSalesNote.reminderDate || undefined
+      reminderDate: editingSalesNote.reminderDate || undefined,
+      is_completed: isCompleted
     }, 'sales');
 
     await fetchSalesNotes();
@@ -616,13 +619,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const todayDateStr = new Date().toISOString().split('T')[0];
   const salesTotalCount = salesNotes.length;
   const isCompletedStage = (stg: string | null) => Boolean(stg && (stg === 'Customer Onboarding' || stg === 'Converted'));
-  const salesUnresolvedCount = salesNotes.filter(n => !n.is_completed && !isCompletedStage(resolveNoteStage(n))).length;
-  const salesDueReminderCount = salesNotes.filter(n => n.reminderDate && n.reminderDate <= todayDateStr && !n.is_completed).length;
+  const isConvertedNote = (n: Note) => Boolean(n.is_completed || isCompletedStage(resolveNoteStage(n)) || n.stage === 'Converted' || n.stage === 'Customer Onboarding' || n.action_item === 'Converted');
+  const salesUnresolvedCount = salesNotes.filter(n => !isConvertedNote(n)).length;
+  const salesDueReminderCount = salesNotes.filter(n => Boolean(n.reminderDate && n.reminderDate <= todayDateStr && !isConvertedNote(n))).length;
   const salesFeeCount = salesNotes.filter(n => resolveNoteStage(n) === 'Estimation' || resolveNoteStage(n) === 'Proposal').length;
-  const salesNotReachableCount = salesNotes.filter(n => n.reminderDate && n.reminderDate < todayDateStr && !n.is_completed).length;
-  const salesResolvedCount = salesNotes.filter(n => n.is_completed || isCompletedStage(resolveNoteStage(n))).length;
+  const salesNotReachableCount = salesNotes.filter(n => Boolean(n.reminderDate && n.reminderDate < todayDateStr && !isConvertedNote(n))).length;
+  const salesResolvedCount = salesNotes.filter(n => isConvertedNote(n)).length;
   const salesResolvedPercent = salesTotalCount > 0 ? Math.round((salesResolvedCount / salesTotalCount) * 100) : 0;
-  const salesFollowupsCompletedCount = salesNotes.filter(n => n.is_completed || isCompletedStage(resolveNoteStage(n)) || resolveNoteStage(n) === 'Proposal').length;
+  const salesFollowupsCompletedCount = salesNotes.filter(n => isConvertedNote(n) || resolveNoteStage(n) === 'Proposal').length;
 
   type OverviewCardKey = 'unresolved' | 'due' | 'total' | 'fee_shared' | 'not_reachable';
 
@@ -689,15 +693,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const getSalesCardNotes = (key: OverviewCardKey): Note[] => {
     switch (key) {
       case 'unresolved':
-        return salesNotes.filter(n => !n.is_completed && !isCompletedStage(resolveNoteStage(n)));
+        return salesNotes.filter(n => !isConvertedNote(n));
       case 'due':
-        return salesNotes.filter(n => Boolean(n.reminderDate && n.reminderDate <= todayDateStr && !n.is_completed));
+        return salesNotes.filter(n => Boolean(n.reminderDate && n.reminderDate <= todayDateStr && !isConvertedNote(n)));
       case 'total':
         return salesNotes;
       case 'fee_shared':
         return salesNotes.filter(n => resolveNoteStage(n) === 'Estimation' || resolveNoteStage(n) === 'Proposal');
       case 'not_reachable':
-        return salesNotes.filter(n => Boolean(n.reminderDate && n.reminderDate < todayDateStr && !n.is_completed));
+        return salesNotes.filter(n => Boolean(n.reminderDate && n.reminderDate < todayDateStr && !isConvertedNote(n)));
       default:
         return salesNotes;
     }

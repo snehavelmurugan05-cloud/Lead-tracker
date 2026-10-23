@@ -181,10 +181,28 @@ export const App: React.FC = () => {
           setPendingCount(count);
         }
 
-        const { data: nts, error: notesError } = await supabase.from('notes').select('reminderDate, is_completed').eq('role', userRole);
+        const { data: nts, error: notesError } = await supabase
+          .from('notes')
+          .select('reminderDate, is_completed, stage, action_item')
+          .eq('role', userRole);
+
         if (!notesError && nts) {
-          const nCount = nts.filter(n => n.reminderDate && !n.is_completed).length;
-          setPendingNotesCount(nCount);
+          const todayDateStr = new Date().toISOString().split('T')[0];
+          const isCompletedStage = (s: string | null) => s === 'Customer Onboarding' || s === 'Converted';
+
+          if (userRole === 'sales') {
+            const activeReminders = nts.filter(n => {
+              if (n.is_completed) return false;
+              if (isCompletedStage(n.stage)) return false;
+              if (n.action_item === 'Converted') return false;
+              if (!n.reminderDate) return false;
+              return n.reminderDate <= todayDateStr;
+            });
+            setPendingNotesCount(activeReminders.length);
+          } else {
+            const nCount = nts.filter(n => n.reminderDate && !n.is_completed && !isCompletedStage(n.stage) && n.action_item !== 'Converted').length;
+            setPendingNotesCount(nCount);
+          }
         }
       } catch (err) {
         console.error('Error fetching pending counts from DB:', err);
