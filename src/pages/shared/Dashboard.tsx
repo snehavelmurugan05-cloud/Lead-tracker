@@ -34,8 +34,8 @@ import {
   Users,
   User
 } from 'lucide-react';
-import EnquiryCard from '../components/EnquiryCard';
-import { SALES_STAGE_THEME, formatRelativeDue } from './SalesNotes';
+import EnquiryCard from '../../components/EnquiryCard';
+import { SALES_STAGE_THEME, formatRelativeDue } from '../sales/SalesNotes';
 import {
   getLocalEnquiries,
   getLocalCourses,
@@ -59,8 +59,8 @@ import {
   type NoteStage,
   type SalesWorkstreamCategory,
   WORKSTREAM_CATEGORIES
-} from '../lib/localDatabase';
-import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
+} from '../../lib/localDatabase';
+import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
 
 export const getNoteDateString = (note: Note): string => {
   if (note.timestamp) {

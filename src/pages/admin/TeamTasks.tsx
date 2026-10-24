@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ClipboardList, Calendar, Flag, User, Clock, CheckCircle, Search, FileText, Eye, X, CheckCheck, Trash2, AlertCircle } from 'lucide-react';
-import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
+import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
 import {
   getLocalEmployeeTasks,
   updateLocalEmployeeTask,
@@ -12,7 +12,7 @@ import {
   type EmployeeTask,
   type Employee,
   type EmployeeDailyReport
-} from '../lib/localDatabase';
+} from '../../lib/localDatabase';
 
 interface TeamTasksProps {
   isDemo: boolean;

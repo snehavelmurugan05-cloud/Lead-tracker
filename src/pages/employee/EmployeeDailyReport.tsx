@@ -25,8 +25,8 @@ import {
   getEmployeeDailyReports,
   type EmployeeDailyReport,
   type UserSession
-} from '../lib/localDatabase';
-import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
+} from '../../lib/localDatabase';
+import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
 
 interface EmployeeDailyReportProps {
   currentUser: UserSession;

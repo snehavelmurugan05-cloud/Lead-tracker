@@ -12,9 +12,9 @@ import {
   Phone,
   Layers
 } from 'lucide-react';
-import { getLocalCourses, getLocalCategories } from '../lib/localDatabase';
-import type { Course, Category } from '../lib/localDatabase';
-import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
+import { getLocalCourses, getLocalCategories } from '../../lib/localDatabase';
+import type { Course, Category } from '../../lib/localDatabase';
+import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
 
 interface CoursesProps {
   isDemo: boolean;

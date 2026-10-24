@@ -6,9 +6,9 @@ import {
   saveLocalCourse, 
   saveLocalCategory,
   deleteLocalCourse 
-} from '../lib/localDatabase';
-import type { Course, Category } from '../lib/localDatabase';
-import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
+} from '../../lib/localDatabase';
+import type { Course, Category } from '../../lib/localDatabase';
+import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
 
 interface ManageCoursesProps {
   isDemo: boolean;

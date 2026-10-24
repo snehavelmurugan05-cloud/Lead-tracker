@@ -21,9 +21,9 @@ import {
   getLocalCourses, 
   getLocalCategories,
   updateLocalEnquiry
-} from '../lib/localDatabase';
-import type { Enquiry, Course, Category } from '../lib/localDatabase';
-import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
+} from '../../lib/localDatabase';
+import type { Enquiry, Course, Category } from '../../lib/localDatabase';
+import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
 
 interface PendingTasksProps {
   isDemo: boolean;

@@ -14,8 +14,8 @@ import {
   getLocalNotes, 
   updateLocalNote,
   type Note
-} from '../lib/localDatabase';
-import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
+} from '../../lib/localDatabase';
+import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
 
 interface PendingNotesProps {
   isDemo: boolean;

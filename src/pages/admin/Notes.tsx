@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Clock, BookOpen, Calendar, Edit2, Trash2, X, Check, Mic, ChevronDown, CheckCircle2, RotateCcw } from 'lucide-react';
-import { isSupabaseConfigured, supabase } from '../lib/supabaseClient';
-import { getLocalNotes, saveLocalNote, updateLocalNote, deleteLocalNote, type Note, type UserSession } from '../lib/localDatabase';
+import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient';
+import { getLocalNotes, saveLocalNote, updateLocalNote, deleteLocalNote, type Note, type UserSession } from '../../lib/localDatabase';
 
 export type AdminActionStatus = 'Pending' | 'Completed';
 

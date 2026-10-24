@@ -18,9 +18,9 @@ import {
   getLocalCourses,
   getLocalCategories,
   addLocalEnquiry
-} from '../lib/localDatabase';
-import type { Course, Category } from '../lib/localDatabase';
-import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
+} from '../../lib/localDatabase';
+import type { Course, Category } from '../../lib/localDatabase';
+import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
 
 interface LeadModuleProps {
   isDemo: boolean;

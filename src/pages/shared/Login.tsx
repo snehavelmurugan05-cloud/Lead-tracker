@@ -12,9 +12,9 @@ import {
   encodeStoredPassword,
   type UserSession,
   type Employee
-} from '../lib/localDatabase';
-import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
-import globalMindsLogo from '../assets/global_minds_logo.jpg';
+} from '../../lib/localDatabase';
+import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
+import globalMindsLogo from '../../assets/global_minds_logo.jpg';
 
 interface LoginProps {
   onLoginSuccess: (session: UserSession) => void;

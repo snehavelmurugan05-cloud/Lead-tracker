@@ -19,8 +19,8 @@ import {
   updateLocalEmployeeTask,
   type EmployeeTask,
   type UserSession
-} from '../lib/localDatabase';
-import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
+} from '../../lib/localDatabase';
+import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
 
 interface EmployeeTasksProps {
   currentUser: UserSession;

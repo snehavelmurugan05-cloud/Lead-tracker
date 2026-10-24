@@ -2,22 +2,30 @@
 import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
-import Dashboard from './pages/Dashboard';
-import LeadModule from './pages/LeadModule';
-import PendingTasks from './pages/PendingTasks';
-import Conversion from './pages/Conversion';
-import Courses from './pages/Courses';
-import ManageCourses from './pages/ManageCourses';
-import SettingsPage from './pages/Settings';
-import Login from './pages/Login';
-import Notes from './pages/Notes';
-import SalesNotes from './pages/SalesNotes';
-import PendingNotes from './pages/PendingNotes';
-import Employees from './pages/Employees';
-import TeamTasks from './pages/TeamTasks';
-import StudentModule from './pages/StudentModule';
-import EmployeeTasks from './pages/EmployeeTasks';
-import EmployeeDailyReportModule from './pages/EmployeeDailyReport';
+
+// Shared & Auth Pages
+import Dashboard from './pages/shared/Dashboard';
+import Login from './pages/shared/Login';
+import SettingsPage from './pages/shared/Settings';
+
+// Sales Pages
+import SalesNotes from './pages/sales/SalesNotes';
+
+// Employee Pages
+import EmployeeTasks from './pages/employee/EmployeeTasks';
+import EmployeeDailyReportModule from './pages/employee/EmployeeDailyReport';
+
+// Admin Pages
+import LeadModule from './pages/admin/LeadModule';
+import PendingTasks from './pages/admin/PendingTasks';
+import Conversion from './pages/admin/Conversion';
+import Courses from './pages/admin/Courses';
+import ManageCourses from './pages/admin/ManageCourses';
+import Notes from './pages/admin/Notes';
+import PendingNotes from './pages/admin/PendingNotes';
+import Employees from './pages/admin/Employees';
+import TeamTasks from './pages/admin/TeamTasks';
+import StudentModule from './pages/admin/StudentModule';
 import { isSupabaseConfigured, supabase } from './lib/supabaseClient';
 import {
   getLocalEnquiries,

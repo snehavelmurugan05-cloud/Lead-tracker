@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { RotateCcw, AlertTriangle, Mail, Key, CheckCircle2, AlertCircle, Send, Bell, Monitor } from 'lucide-react';
-import { resetLocalDatabase } from '../lib/localDatabase';
-import { getResendApiKey, setResendApiKey, sendTaskEmail } from '../lib/emailService';
-import { triggerDesktopNotification, checkAndNotifyDueReminders } from '../lib/desktopNotification';
+import { resetLocalDatabase } from '../../lib/localDatabase';
+import { getResendApiKey, setResendApiKey, sendTaskEmail } from '../../lib/emailService';
+import { triggerDesktopNotification, checkAndNotifyDueReminders } from '../../lib/desktopNotification';
 
-import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
+import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
 
 interface SettingsProps {
   onDatabaseUpdate: () => void;

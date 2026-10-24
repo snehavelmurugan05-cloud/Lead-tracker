@@ -15,9 +15,9 @@ import {
   UserPlus,
   Code
 } from 'lucide-react';
-import { getLocalCourses, getLocalCategories, getLocalEnquiries } from '../lib/localDatabase';
-import type { Course, Category, Enquiry } from '../lib/localDatabase';
-import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
+import { getLocalCourses, getLocalCategories, getLocalEnquiries } from '../../lib/localDatabase';
+import type { Course, Category, Enquiry } from '../../lib/localDatabase';
+import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
 import { getCourseCoverImage, getCourseDuration } from './Courses';
 
 interface StudentProps {

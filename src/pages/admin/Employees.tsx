@@ -10,9 +10,9 @@ import {
   saveEmployeeCredential,
   getEmployeePassword,
   type Employee
-} from '../lib/localDatabase';
-import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
-import { sendTaskEmail } from '../lib/emailService';
+} from '../../lib/localDatabase';
+import { supabase, isSupabaseConfigured } from '../../lib/supabaseClient';
+import { sendTaskEmail } from '../../lib/emailService';
 
 interface EmployeesProps {
   isDemo: boolean;

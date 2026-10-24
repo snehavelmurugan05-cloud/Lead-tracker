@@ -21,7 +21,7 @@ import {
   Users,
   User
 } from 'lucide-react';
-import { getNoteDateString, formatFilterDateLabel, noteMatchesDate } from './Dashboard';
+import { getNoteDateString, formatFilterDateLabel, noteMatchesDate } from '../shared/Dashboard';
 import {
   getLocalNotes,
   syncLocalSalesNotes,
@@ -37,8 +37,8 @@ import {
   type UserSession,
   type SalesWorkstreamCategory,
   WORKSTREAM_CATEGORIES
-} from '../lib/localDatabase';
-import { supabase } from '../lib/supabaseClient';
+} from '../../lib/localDatabase';
+import { supabase } from '../../lib/supabaseClient';
 
 export const SALES_STAGE_THEME: Record<string, { bg: string; color: string; border: string }> = {
   // 8 Pipeline Stages
