@@ -334,7 +334,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     setNewSalesNoteCategory('');
     setShowAddSalesNoteModal(false);
     setIsSavingNewSalesNote(false);
-    
+
     // Switch view to this creator or keep 'all' if selected
     if (selectedSalesPerson !== 'all' && selectedSalesPerson.toLowerCase() !== creatorName.toLowerCase()) {
       setSelectedSalesPerson(creatorName);
@@ -382,7 +382,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const finalActionItem = finalCategory ? `Workstream: ${finalCategory}` : (finalStage || null);
 
     const isCompleted = Boolean(finalStage === 'Customer Onboarding' || finalStage === 'Converted' || finalStage === 'Partnership Followup' || editingSalesNote.is_completed);
-    const creatorName = editingSalesNote.created_by || user?.name || 'Sales Desk';
+    const creatorName = editingSalesNote.created_by || user?.name || 'Kanchana';
 
     if (supabase) {
       try {
@@ -1013,13 +1013,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
     const filterName = customFilterName || (
       salesDateFilter === 'exact' ? `${formatFilterDateLabel(salesExactDate)} Updates` :
-      salesDateFilter === 'today' ? "Today's Updates" :
-      salesDateFilter === 'yesterday' ? "Yesterday's Updates" :
-      salesDateFilter === 'last7' ? "Last 7 Days Updates" :
-      salesDateFilter === 'thisMonth' ? "This Month's Updates" :
-      salesDateFilter === 'custom' ? `Custom Range (${salesCustomStartDate || 'start'} to ${salesCustomEndDate || 'today'})` :
-      notesStageFilter !== 'all' ? `${notesStageFilter} Stage` :
-      "All Notes"
+        salesDateFilter === 'today' ? "Today's Updates" :
+          salesDateFilter === 'yesterday' ? "Yesterday's Updates" :
+            salesDateFilter === 'last7' ? "Last 7 Days Updates" :
+              salesDateFilter === 'thisMonth' ? "This Month's Updates" :
+                salesDateFilter === 'custom' ? `Custom Range (${salesCustomStartDate || 'start'} to ${salesCustomEndDate || 'today'})` :
+                  notesStageFilter !== 'all' ? `${notesStageFilter} Stage` :
+                    "All Notes"
     );
 
     const nowFormatted = new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
@@ -1043,7 +1043,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     <Cell ss:StyleID="CellText"><Data ss:Type="String">${sanitize(n.action_item || stage)}</Data></Cell>
     <Cell ss:StyleID="CellDate"><Data ss:Type="String">${sanitize(reminderFormatted)}</Data></Cell>
     <Cell ss:StyleID="CellStatus"><Data ss:Type="String">${sanitize(status)}</Data></Cell>
-    <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${sanitize(n.created_by || 'Sales Desk')}</Data></Cell>
+    <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${sanitize(n.created_by || 'Kanchana')}</Data></Cell>
    </Row>`;
     }).join('');
 
@@ -1154,7 +1154,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     <Cell ss:MergeAcross="7" ss:StyleID="Title"><Data ss:Type="String">GLOBAL MINDS TECHNOLOGIES - SALES UPDATES REPORT</Data></Cell>
    </Row>
    <Row ss:Height="18">
-    <Cell ss:MergeAcross="7" ss:StyleID="Subtitle"><Data ss:Type="String">Filter: ${sanitize(filterName)}  |  Generated: ${nowFormatted}  |  Total Records: ${notesToExport.length}  |  Prepared By: Sales Desk</Data></Cell>
+    <Cell ss:MergeAcross="7" ss:StyleID="Subtitle"><Data ss:Type="String">Filter: ${sanitize(filterName)}  |  Generated: ${nowFormatted}  |  Total Records: ${notesToExport.length}  |  Prepared By: ${sanitize(isSalesDeskAdmin ? (selectedSalesPerson === 'Hamsalekha' ? 'Hamsalekha' : 'Kanchana') : 'Hamsalekha')}</Data></Cell>
    </Row>
    <Row ss:Height="10"/>
    <Row ss:Height="26" ss:StyleID="Header">
@@ -1324,7 +1324,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         `"${(n.action_item || stage || '').replace(/"/g, '""')}"`,
         `"${reminderFormatted.replace(/"/g, '""')}"`,
         `"${status.replace(/"/g, '""')}"`,
-        `"${(n.created_by || 'Sales Desk').replace(/"/g, '""')}"`
+        `"${(n.created_by || 'Kanchana').replace(/"/g, '""')}"`
       ];
     });
 
@@ -1368,7 +1368,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       text += `   Action: ${n.action_item || stage}${reminder} | Status: ${n.is_completed ? 'Completed' : 'Pending Follow-up'}\n\n`;
     });
 
-    text += `Prepared by: Sales Desk · Global Minds`;
+    text += `Prepared by: ${isSalesDeskAdmin ? (selectedSalesPerson === 'Hamsalekha' ? 'Hamsalekha' : 'Kanchana') : 'Hamsalekha'} · Global Minds`;
 
     if (navigator.share) {
       try {
@@ -1434,10 +1434,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
       const q = (searchQuery || '').toLowerCase().trim();
       if (!q) return true;
       const c = courses.find(course => course.id === e.course_id);
-      return e.contact_name.toLowerCase().includes(q) || 
-             (e.contact_phone && e.contact_phone.includes(q)) || 
-             (c && c.name.toLowerCase().includes(q)) ||
-             (e.notes && e.notes.toLowerCase().includes(q));
+      return e.contact_name.toLowerCase().includes(q) ||
+        (e.contact_phone && e.contact_phone.includes(q)) ||
+        (c && c.name.toLowerCase().includes(q)) ||
+        (e.notes && e.notes.toLowerCase().includes(q));
     })
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
@@ -1520,7 +1520,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       transition: 'all 0.15s ease'
                     }}
                   >
-                    <span>🏢 Kanchana (My Desk)</span>
+                    <span>🏢 Kanchana</span>
                     <span style={{ backgroundColor: selectedSalesPerson === 'Kanchana' || selectedSalesPerson === 'Sales Desk' ? '#0284c7' : '#f1f5f9', color: selectedSalesPerson === 'Kanchana' || selectedSalesPerson === 'Sales Desk' ? '#ffffff' : '#64748b', fontSize: '11px', fontWeight: 800, padding: '2px 8px', borderRadius: '999px' }}>
                       {salesNotes.filter(n => {
                         const c = (n.created_by || 'Kanchana').trim().toLowerCase();
@@ -1552,7 +1552,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       transition: 'all 0.15s ease'
                     }}
                   >
-                    <span>👤 Hamsalekha's Workspace & Reports</span>
+                    <span>👤 Hamsalekha</span>
                     <span style={{ backgroundColor: selectedSalesPerson === 'Hamsalekha' ? '#1ba37c' : '#f1f5f9', color: selectedSalesPerson === 'Hamsalekha' ? '#ffffff' : '#64748b', fontSize: '11px', fontWeight: 800, padding: '2px 8px', borderRadius: '999px' }}>
                       {salesNotes.filter(n => {
                         const c = (n.created_by || '').trim().toLowerCase();
@@ -1578,7 +1578,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     boxShadow: '0 2px 4px rgba(27,163,124,0.15)'
                   }}
                 >
-                  <span>👤 My Pipeline · Hamsalekha</span>
+                  <span>👤 Hamsalekha</span>
                   <span
                     style={{
                       backgroundColor: '#1ba37c',
@@ -1601,7 +1601,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 onClick={() => {
                   const creator = !isSalesDeskAdmin
                     ? 'Hamsalekha'
-                    : (selectedSalesPerson === 'Hamsalekha' ? 'Hamsalekha' : 'Sales Desk');
+                    : (selectedSalesPerson === 'Hamsalekha' ? 'Hamsalekha' : 'Kanchana');
                   setNewSalesNoteCreator(creator);
                   setShowAddSalesNoteModal(true);
                 }}
@@ -1623,7 +1623,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         )}
 
-        {/* Banner when Kanchana is inspecting Hamsalekha's workspace */}
+        {/* Banner when Kanchana is inspecting Hamsalekha's view */}
         {isSales && isSalesDeskAdmin && selectedSalesPerson === 'Hamsalekha' && (
           <div
             style={{
@@ -1644,7 +1644,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ fontSize: '15px' }}>👁️</span>
               <span>
-                Viewing <strong>Hamsalekha's Dedicated Reports & Pipeline</strong> (Kanchana Admin Access). All metrics and notes below are strictly Hamsalekha's.
+                Viewing <strong>Hamsalekha</strong> (Kanchana Admin Access). All metrics and notes below are strictly Hamsalekha's.
               </span>
             </div>
             <button
@@ -1661,7 +1661,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 cursor: 'pointer'
               }}
             >
-              ← Back to My Desk (Kanchana)
+              ← Back to Kanchana
             </button>
           </div>
         )}
@@ -2045,8 +2045,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {salesPipelineStages.map((stageItem, idx) => {
-                const barWidthPercent = stageItem.count > 0 
-                  ? Math.max(12, Math.round((stageItem.count / maxSalesPipelineStageCount) * 100)) 
+                const barWidthPercent = stageItem.count > 0
+                  ? Math.max(12, Math.round((stageItem.count / maxSalesPipelineStageCount) * 100))
                   : 6;
                 const isActiveStage = notesStageFilter === stageItem.name;
                 const stageTheme = SALES_STAGE_THEME[stageItem.name] || SALES_STAGE_THEME['Target Customer'];
@@ -2266,8 +2266,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {courseInterestCounts.map((courseItem, idx) => {
-                const barWidthPercent = courseItem.count > 0 
-                  ? Math.max(12, Math.round((courseItem.count / maxCourseCount) * 100)) 
+                const barWidthPercent = courseItem.count > 0
+                  ? Math.max(12, Math.round((courseItem.count / maxCourseCount) * 100))
                   : 4;
 
                 return (
@@ -2765,11 +2765,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
                           <Calendar size={12} />
                           <span>
                             {salesDateFilter === 'exact' ? `Date: ${formatFilterDateLabel(salesExactDate)} (${filteredSalesNotes.length})` :
-                             salesDateFilter === 'today' ? `Today (${filteredSalesNotes.length})` :
-                             salesDateFilter === 'yesterday' ? `Yesterday (${filteredSalesNotes.length})` :
-                             salesDateFilter === 'last7' ? `Last 7 Days (${filteredSalesNotes.length})` :
-                             salesDateFilter === 'thisMonth' ? `This Month (${filteredSalesNotes.length})` :
-                             `Custom Range (${salesCustomStartDate || 'start'} to ${salesCustomEndDate || 'today'}) (${filteredSalesNotes.length})`}
+                              salesDateFilter === 'today' ? `Today (${filteredSalesNotes.length})` :
+                                salesDateFilter === 'yesterday' ? `Yesterday (${filteredSalesNotes.length})` :
+                                  salesDateFilter === 'last7' ? `Last 7 Days (${filteredSalesNotes.length})` :
+                                    salesDateFilter === 'thisMonth' ? `This Month (${filteredSalesNotes.length})` :
+                                      `Custom Range (${salesCustomStartDate || 'start'} to ${salesCustomEndDate || 'today'}) (${filteredSalesNotes.length})`}
                           </span>
                           <button
                             type="button"
@@ -3194,7 +3194,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                                   )}
                                 </td>
                                 <td style={{ fontSize: '12.5px', color: '#477987', fontWeight: 600, verticalAlign: 'middle' }}>
-                                  {note.created_by || 'Sales Desk'}
+                                  {note.created_by || 'Kanchana'}
                                 </td>
                                 <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
                                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', justifyContent: 'center' }}>
@@ -3459,10 +3459,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             {e.fee_shared ? 'Shared' : 'Pending'}
                           </span>
                           {e.payment && (
-                            <span style={{ 
-                              fontSize: '11px', 
-                              fontWeight: 600, 
-                              color: e.payment === 'Completed' ? 'hsl(var(--success))' : e.payment === 'Partially Paid' ? '#d97706' : 'hsl(var(--muted))' 
+                            <span style={{
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              color: e.payment === 'Completed' ? 'hsl(var(--success))' : e.payment === 'Partially Paid' ? '#d97706' : 'hsl(var(--muted))'
                             }}>
                               {e.payment}
                             </span>
@@ -3908,7 +3908,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     onChange={e => setEditingSalesNote({ ...editingSalesNote, created_by: e.target.value })}
                     disabled={!isSalesDeskAdmin}
                   >
-                    <option value="Hamsalekha">👤 Hamsalekha (Sales 1)</option>
+                    <option value="Hamsalekha">👤 Hamsalekha</option>
                     {isSalesDeskAdmin && <option value="Kanchana">👤 Kanchana</option>}
                   </select>
                 </div>
@@ -4107,7 +4107,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     onChange={e => setNewSalesNoteCreator(e.target.value)}
                     disabled={!isSalesDeskAdmin}
                   >
-                    <option value="Hamsalekha">👤 Hamsalekha (Sales 1)</option>
+                    <option value="Hamsalekha">👤 Hamsalekha</option>
                     {isSalesDeskAdmin && <option value="Kanchana">👤 Kanchana</option>}
                   </select>
                 </div>
@@ -4732,7 +4732,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                               {/* Footer: Creator & Actions */}
                               <div className="overview-note-card-footer">
                                 <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>
-                                  Logged by: <strong style={{ color: '#334155' }}>{note.created_by || 'Sales Desk'}</strong>
+                                  Logged by: <strong style={{ color: '#334155' }}>{note.created_by || 'Kanchana'}</strong>
                                 </span>
 
                                 <div className="overview-note-card-actions">

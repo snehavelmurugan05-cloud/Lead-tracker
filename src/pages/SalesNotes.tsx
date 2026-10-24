@@ -319,7 +319,7 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
     const finalActionItem = finalCategory ? `Workstream: ${finalCategory}` : (finalStage || null);
 
     const isCompleted = Boolean(finalStage === 'Customer Onboarding' || finalStage === 'Converted' || finalStage === 'Partnership Followup' || editingNote.is_completed);
-    const creatorName = editingNote.created_by || currentUser?.name || 'Sales Desk';
+    const creatorName = editingNote.created_by || currentUser?.name || 'Kanchana';
 
     if (supabase) {
       try {
@@ -481,7 +481,7 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
     <Cell ss:StyleID="CellText"><Data ss:Type="String">${sanitize(n.action_item || stage)}</Data></Cell>
     <Cell ss:StyleID="CellDate"><Data ss:Type="String">${sanitize(reminderFormatted)}</Data></Cell>
     <Cell ss:StyleID="CellStatus"><Data ss:Type="String">${sanitize(status)}</Data></Cell>
-    <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${sanitize(n.created_by || 'Sales Desk')}</Data></Cell>
+    <Cell ss:StyleID="CellCenter"><Data ss:Type="String">${sanitize(n.created_by || 'Kanchana')}</Data></Cell>
    </Row>`;
     }).join('');
 
@@ -592,7 +592,7 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
     <Cell ss:MergeAcross="7" ss:StyleID="Title"><Data ss:Type="String">GLOBAL MINDS TECHNOLOGIES - SALES UPDATES REPORT</Data></Cell>
    </Row>
    <Row ss:Height="18">
-    <Cell ss:MergeAcross="7" ss:StyleID="Subtitle"><Data ss:Type="String">Filter: ${sanitize(filterName)}  |  Generated: ${nowFormatted}  |  Total Records: ${notesToExport.length}  |  Prepared By: Sales Desk</Data></Cell>
+    <Cell ss:MergeAcross="7" ss:StyleID="Subtitle"><Data ss:Type="String">Filter: ${sanitize(filterName)}  |  Generated: ${nowFormatted}  |  Total Records: ${notesToExport.length}  |  Prepared By: ${sanitize(isSalesDeskAdmin ? (selectedSalesPerson === 'Hamsalekha' ? 'Hamsalekha' : 'Kanchana') : 'Hamsalekha')}</Data></Cell>
    </Row>
    <Row ss:Height="10"/>
    <Row ss:Height="26" ss:StyleID="Header">
@@ -972,7 +972,7 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
                     color: '#162e3b'
                   }}
                 >
-                  <option value="Hamsalekha">👤 Hamsalekha (Sales 1)</option>
+                  <option value="Hamsalekha">👤 Hamsalekha</option>
                   {isSalesDeskAdmin && <option value="Kanchana">👤 Kanchana</option>}
                 </select>
               </div>
@@ -1054,7 +1054,7 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
                     boxShadow: selectedSalesPerson === 'Kanchana' || selectedSalesPerson === 'Sales Desk' ? '0 2px 4px rgba(2,132,199,0.18)' : 'none'
                   }}
                 >
-                  <span>🏢 Kanchana Ledger</span>
+                  <span>🏢 Kanchana</span>
                   <span style={{ backgroundColor: selectedSalesPerson === 'Kanchana' || selectedSalesPerson === 'Sales Desk' ? '#0284c7' : '#f1f5f9', color: selectedSalesPerson === 'Kanchana' || selectedSalesPerson === 'Sales Desk' ? '#ffffff' : '#64748b', fontSize: '10.5px', fontWeight: 800, padding: '1px 6px', borderRadius: '999px' }}>
                     {notes.filter(n => {
                       const c = (n.created_by || 'Kanchana').trim().toLowerCase();
@@ -1085,7 +1085,7 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
                     boxShadow: selectedSalesPerson === 'Hamsalekha' ? '0 2px 4px rgba(27,163,124,0.18)' : 'none'
                   }}
                 >
-                  <span>👤 Hamsalekha's Notes Ledger</span>
+                  <span>👤 Hamsalekha</span>
                   <span style={{ backgroundColor: selectedSalesPerson === 'Hamsalekha' ? '#1ba37c' : '#f1f5f9', color: selectedSalesPerson === 'Hamsalekha' ? '#ffffff' : '#64748b', fontSize: '10.5px', fontWeight: 800, padding: '1px 6px', borderRadius: '999px' }}>
                     {notes.filter(n => {
                       const c = (n.created_by || '').trim().toLowerCase();
@@ -1109,7 +1109,7 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
                   gap: '6px'
                 }}
               >
-                <span>👤 My Notes · Hamsalekha</span>
+                <span>👤 Hamsalekha</span>
                 <span style={{ backgroundColor: '#1ba37c', color: '#ffffff', fontSize: '10.5px', fontWeight: 800, padding: '1px 6px', borderRadius: '999px' }}>
                   {scopedNotes.length}
                 </span>
@@ -1118,7 +1118,7 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
           </div>
         </div>
 
-        {/* Banner when Kanchana is inspecting Hamsalekha's ledger */}
+        {/* Banner when Kanchana is inspecting Hamsalekha */}
         {isSalesDeskAdmin && selectedSalesPerson === 'Hamsalekha' && (
           <div
             style={{
@@ -1137,7 +1137,7 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span>👁️</span>
-              <span>Viewing <strong>Hamsalekha's Dedicated Notes Ledger</strong> (Kanchana Admin Access). Entries are kept separate from Kanchana.</span>
+              <span>Viewing <strong>Hamsalekha</strong> (Kanchana Admin Access). Entries are kept separate from Kanchana.</span>
             </div>
             <button
               type="button"
@@ -1148,7 +1148,7 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
               }}
               style={{ padding: '4px 12px', borderRadius: '6px', backgroundColor: '#ffffff', border: '1px solid #86efac', color: '#166534', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}
             >
-              ← Back to Kanchana Ledger
+              ← Back to Kanchana
             </button>
           </div>
         )}
@@ -1753,7 +1753,7 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
                           )}
                         </td>
                         <td style={{ fontSize: '12.5px', color: '#477987', fontWeight: 600, verticalAlign: 'middle' }}>
-                          {note.created_by || 'Sales Desk'}
+                          {note.created_by || 'Kanchana'}
                         </td>
                         <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
                           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', justifyContent: 'center' }}>
@@ -2003,7 +2003,7 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
                     Sales Specialist / Logged By
                   </label>
                   <select
-                    value={editingNote.created_by || (isSalesDeskAdmin ? 'Sales Desk' : 'Hamsalekha')}
+                    value={editingNote.created_by || (isSalesDeskAdmin ? 'Kanchana' : 'Hamsalekha')}
                     onChange={(e) => setEditingNote({ ...editingNote, created_by: e.target.value })}
                     disabled={!isSalesDeskAdmin}
                     style={{
@@ -2016,7 +2016,7 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
                       backgroundColor: '#ffffff'
                     }}
                   >
-                    <option value="Hamsalekha">👤 Hamsalekha (Sales 1)</option>
+                    <option value="Hamsalekha">👤 Hamsalekha</option>
                     {isSalesDeskAdmin && <option value="Kanchana">👤 Kanchana</option>}
                   </select>
                 </div>
