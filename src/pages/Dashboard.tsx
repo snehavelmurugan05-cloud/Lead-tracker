@@ -183,7 +183,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
     return 'all';
   });
-  const [newSalesNoteCreator, setNewSalesNoteCreator] = useState<string>(() => user?.name || 'Amsulekha');
+  const [newSalesNoteCreator, setNewSalesNoteCreator] = useState<string>(() => user?.name || 'Hamsalekha');
   const [newSalesNoteContent, setNewSalesNoteContent] = useState<string>('');
   const [newSalesNoteStage, setNewSalesNoteStage] = useState<NoteStage | ''>('');
   const [newSalesNoteCategory, setNewSalesNoteCategory] = useState<SalesWorkstreamCategory | ''>('');
@@ -279,7 +279,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     const finalCategory = hasCategory ? (newSalesNoteCategory as SalesWorkstreamCategory) : undefined;
     const isConverted = finalStage === 'Customer Onboarding' || finalStage === 'Converted' || finalStage === 'Partnership Followup';
     const finalActionItem = finalCategory ? `Workstream: ${finalCategory}` : (finalStage || undefined);
-    const creatorName = newSalesNoteCreator || user?.name || 'Amsulekha';
+    const creatorName = newSalesNoteCreator || user?.name || 'Hamsalekha';
 
     const notePayload: Note = {
       id: noteId,
@@ -636,7 +636,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   // Sales Person list and scoped notes
   const salesPersonsList = useMemo(() => {
-    const list = ['Sales Desk', 'Amsulekha'];
+    const list = ['Sales Desk', 'Hamsalekha'];
     salesNotes.forEach(n => {
       if (n.created_by && n.created_by !== 'Admin' && n.created_by !== 'System' && !list.includes(n.created_by)) {
         list.push(n.created_by);
@@ -645,15 +645,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return list;
   }, [salesNotes]);
 
-  // Scoped sales notes according to selectedSalesPerson filter ('all', 'Sales Desk', 'Amsulekha')
+  // Scoped sales notes according to selectedSalesPerson filter ('all', 'Sales Desk', 'Hamsalekha')
   const scopedSalesNotes = useMemo(() => {
     return salesNotes.filter(n => {
       if (n.role === 'admin' || n.created_by === 'Admin') return false;
       if (selectedSalesPerson === 'all') return true;
       const creator = (n.created_by || 'Sales Desk').trim().toLowerCase();
       const sel = selectedSalesPerson.trim().toLowerCase();
-      if (sel === 'amsulekha' || sel === 'sales 1' || sel === 'sales1') {
-        return creator === 'amsulekha' || creator === 'sales 1' || creator === 'sales1';
+      if (sel === 'hamsalekha' || sel === 'amsulekha' || sel === 'sales 1' || sel === 'sales1') {
+        return creator === 'hamsalekha' || creator === 'amsulekha' || creator === 'sales 1' || creator === 'sales1';
       }
       return creator === sel;
     });
@@ -1512,19 +1512,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </span>
               </button>
 
-              {/* Individual Sales Person Pills (Sales Desk, Amsulekha, etc.) */}
+              {/* Individual Sales Person Pills (Sales Desk, Hamsalekha, etc.) */}
               {salesPersonsList.map(person => {
                 const count = salesNotes.filter(n => {
                   if (n.role === 'admin' || n.created_by === 'Admin') return false;
                   const c = (n.created_by || 'Sales Desk').trim().toLowerCase();
                   const p = person.trim().toLowerCase();
-                  if (p === 'amsulekha') return c === 'amsulekha' || c === 'sales 1' || c === 'sales1';
+                  if (p === 'hamsalekha' || p === 'amsulekha') return c === 'hamsalekha' || c === 'amsulekha' || c === 'sales 1' || c === 'sales1';
                   return c === p;
                 }).length;
 
                 const isSelected = selectedSalesPerson.toLowerCase() === person.toLowerCase();
                 const isCurrentLoggedUser = (user?.name || '').toLowerCase() === person.toLowerCase() ||
-                  (user?.name === 'Amsulekha' && person.toLowerCase() === 'amsulekha');
+                  ((user?.name?.toLowerCase() === 'hamsalekha' || user?.name?.toLowerCase() === 'amsulekha') &&
+                   (person.toLowerCase() === 'hamsalekha' || person.toLowerCase() === 'amsulekha'));
 
                 return (
                   <button
@@ -1572,7 +1573,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  setNewSalesNoteCreator(user?.name || (selectedSalesPerson !== 'all' ? selectedSalesPerson : 'Amsulekha'));
+                  setNewSalesNoteCreator(user?.name || (selectedSalesPerson !== 'all' ? selectedSalesPerson : 'Hamsalekha'));
                   setShowAddSalesNoteModal(true);
                 }}
                 className="btn btn-primary"
@@ -3834,7 +3835,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     value={editingSalesNote.created_by || 'Sales Desk'}
                     onChange={e => setEditingSalesNote({ ...editingSalesNote, created_by: e.target.value })}
                   >
-                    <option value="Amsulekha">👤 Amsulekha (Sales 1)</option>
+                    <option value="Hamsalekha">👤 Hamsalekha (Sales 1)</option>
                     <option value="Sales Desk">👤 Sales Desk</option>
                   </select>
                 </div>
@@ -4032,7 +4033,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     value={newSalesNoteCreator}
                     onChange={e => setNewSalesNoteCreator(e.target.value)}
                   >
-                    <option value="Amsulekha">👤 Amsulekha (Sales 1)</option>
+                    <option value="Hamsalekha">👤 Hamsalekha (Sales 1)</option>
                     <option value="Sales Desk">👤 Sales Desk</option>
                   </select>
                 </div>

@@ -104,7 +104,7 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
   const [quickNoteStage, setQuickNoteStage] = useState<NoteStage | ''>('');
   const [quickNoteCategory, setQuickNoteCategory] = useState<SalesWorkstreamCategory | ''>('');
   const [quickNoteReminder, setQuickNoteReminder] = useState('');
-  const [quickNoteCreator, setQuickNoteCreator] = useState<string>(() => currentUser?.name || 'Amsulekha');
+  const [quickNoteCreator, setQuickNoteCreator] = useState<string>(() => currentUser?.name || 'Hamsalekha');
   const [isSaving, setIsSaving] = useState(false);
 
   // Sales Person filter state
@@ -357,7 +357,7 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
       const hasCategory = Boolean(quickNoteCategory && String(quickNoteCategory) !== 'null' && String(quickNoteCategory) !== 'None');
       const finalCategory = hasCategory ? (quickNoteCategory as SalesWorkstreamCategory) : undefined;
       const finalActionItem = finalCategory ? `Workstream: ${finalCategory}` : (finalStage || undefined);
-      const creatorName = quickNoteCreator || currentUser?.name || 'Amsulekha';
+      const creatorName = quickNoteCreator || currentUser?.name || 'Hamsalekha';
 
       const newNoteData = {
         id: noteId,
@@ -649,7 +649,7 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
 
   // Sales Person list and scoped notes
   const salesPersonsList = useMemo(() => {
-    const list = ['Sales Desk', 'Amsulekha'];
+    const list = ['Sales Desk', 'Hamsalekha'];
     notes.forEach(n => {
       if (n.created_by && n.created_by !== 'Admin' && n.created_by !== 'System' && !list.includes(n.created_by)) {
         list.push(n.created_by);
@@ -664,8 +664,8 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
       if (selectedSalesPerson === 'all') return true;
       const creator = (n.created_by || 'Sales Desk').trim().toLowerCase();
       const sel = selectedSalesPerson.trim().toLowerCase();
-      if (sel === 'amsulekha' || sel === 'sales 1' || sel === 'sales1') {
-        return creator === 'amsulekha' || creator === 'sales 1' || creator === 'sales1';
+      if (sel === 'hamsalekha' || sel === 'amsulekha' || sel === 'sales 1' || sel === 'sales1') {
+        return creator === 'hamsalekha' || creator === 'amsulekha' || creator === 'sales 1' || creator === 'sales1';
       }
       return creator === sel;
     });
@@ -951,7 +951,7 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
                     color: '#162e3b'
                   }}
                 >
-                  <option value="Amsulekha">👤 Amsulekha (Sales 1)</option>
+                  <option value="Hamsalekha">👤 Hamsalekha (Sales 1)</option>
                   <option value="Sales Desk">👤 Sales Desk</option>
                 </select>
               </div>
@@ -1040,7 +1040,7 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
                 if (n.role === 'admin' || n.created_by === 'Admin') return false;
                 const c = (n.created_by || 'Sales Desk').trim().toLowerCase();
                 const p = person.trim().toLowerCase();
-                if (p === 'amsulekha') return c === 'amsulekha' || c === 'sales 1' || c === 'sales1';
+                if (p === 'hamsalekha' || p === 'amsulekha') return c === 'hamsalekha' || c === 'amsulekha' || c === 'sales 1' || c === 'sales1';
                 return c === p;
               }).length;
 
@@ -1941,7 +1941,7 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
                       backgroundColor: '#ffffff'
                     }}
                   >
-                    <option value="Amsulekha">👤 Amsulekha (Sales 1)</option>
+                    <option value="Hamsalekha">👤 Hamsalekha (Sales 1)</option>
                     <option value="Sales Desk">👤 Sales Desk</option>
                   </select>
                 </div>

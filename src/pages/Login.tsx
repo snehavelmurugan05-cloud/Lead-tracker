@@ -119,20 +119,22 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         }
       }
 
-      // 2. Sales Credentials Check (Supports Sales Desk and Amsulekha / Sales 1)
+      // 2. Sales Credentials Check (Supports Sales Desk and Hamsalekha / Sales 1)
       const cleanUserLower = trimmedUser.toLowerCase().trim().replace(/\s+/g, ' ');
       const userNoSpaces = trimmedUser.toLowerCase().replace(/[\s\-_]+/g, '');
 
-      const isAmsulekha =
+      const isHamsalekha =
         cleanUserLower === 'sales 1' ||
         userNoSpaces === 'sales1' ||
+        cleanUserLower === 'hamsalekha' ||
         cleanUserLower === 'amsulekha' ||
         cleanUserLower.startsWith('sales 1@') ||
         cleanUserLower.startsWith('sales1@') ||
+        cleanUserLower.startsWith('hamsalekha@') ||
         cleanUserLower.startsWith('amsulekha@');
 
       const isMainSales =
-        !isAmsulekha && (
+        !isHamsalekha && (
           cleanUserLower === 'sales' ||
           cleanUserLower === 'salesdesk' ||
           cleanUserLower === 'sales desk' ||
@@ -155,23 +157,23 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
         trimmedPass === 'Sales@123' ||
         trimmedPass === 'Sales123';
 
-      if (isAmsulekha) {
+      if (isHamsalekha) {
         if (isValidSalesPass) {
           setIsLoading(false);
-          const amsulekhaSession: UserSession = {
+          const hamsalekhaSession: UserSession = {
             role: 'sales',
-            id: 'sales-amsulekha',
-            name: 'Amsulekha',
+            id: 'sales-hamsalekha',
+            name: 'Hamsalekha',
             username: 'sales 1',
-            email: 'sales1@globalminds.com',
+            email: 'hamsalekha@globalminds.com',
             role_title: 'Sales Specialist · Global Minds'
           };
-          setCurrentUserSession(amsulekhaSession);
-          onLoginSuccess(amsulekhaSession);
+          setCurrentUserSession(hamsalekhaSession);
+          onLoginSuccess(hamsalekhaSession);
           return;
         } else {
           setIsLoading(false);
-          setErrorMsg('Invalid password for Amsulekha. Password is "sales".');
+          setErrorMsg('Invalid password for Hamsalekha. Password is "sales".');
           return;
         }
       }
@@ -654,16 +656,16 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                     <button
                       type="button"
                       onClick={() => {
-                        const amsulekhaSession: UserSession = {
+                        const hamsalekhaSession: UserSession = {
                           role: 'sales',
-                          id: 'sales-amsulekha',
-                          name: 'Amsulekha',
+                          id: 'sales-hamsalekha',
+                          name: 'Hamsalekha',
                           username: 'sales 1',
-                          email: 'sales1@globalminds.com',
+                          email: 'hamsalekha@globalminds.com',
                           role_title: 'Sales Specialist · Global Minds'
                         };
-                        setCurrentUserSession(amsulekhaSession);
-                        onLoginSuccess(amsulekhaSession);
+                        setCurrentUserSession(hamsalekhaSession);
+                        onLoginSuccess(hamsalekhaSession);
                       }}
                       style={{
                         padding: '8px 10px',
@@ -681,7 +683,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                         transition: 'all 0.15s ease'
                       }}
                     >
-                      <span>👤</span> Amsulekha
+                      <span>👤</span> Hamsalekha
                     </button>
                     <button
                       type="button"
