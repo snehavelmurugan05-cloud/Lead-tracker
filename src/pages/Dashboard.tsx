@@ -186,9 +186,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   const [selectedSalesPerson, setSelectedSalesPerson] = useState<string>(() => {
     if (user?.role === 'sales' && (user?.name?.toLowerCase() !== 'sales desk' && user?.username?.toLowerCase() !== 'sales')) {
-      return user?.name || 'Hamsalekha';
+      return 'Hamsalekha';
     }
-    return 'all';
+    return 'Sales Desk';
   });
   const [newSalesNoteCreator, setNewSalesNoteCreator] = useState<string>(() => user?.name || 'Hamsalekha');
   const [newSalesNoteContent, setNewSalesNoteContent] = useState<string>('');
@@ -655,7 +655,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return list;
   }, [salesNotes, isSalesDeskAdmin]);
 
-  // Scoped sales notes according to selectedSalesPerson filter ('all', 'Sales Desk', 'Hamsalekha')
+  // Scoped sales notes according to selectedSalesPerson workspace ('Sales Desk' vs 'Hamsalekha')
   const scopedSalesNotes = useMemo(() => {
     return salesNotes.filter(n => {
       if (n.role === 'admin' || n.created_by === 'Admin') return false;
@@ -664,13 +664,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
         const creator = (n.created_by || '').trim().toLowerCase();
         return creator === 'hamsalekha' || creator === 'amsulekha' || creator === 'sales 1' || creator === 'sales1';
       }
-      if (selectedSalesPerson === 'all') return true;
       const creator = (n.created_by || 'Sales Desk').trim().toLowerCase();
       const sel = selectedSalesPerson.trim().toLowerCase();
       if (sel === 'hamsalekha' || sel === 'amsulekha' || sel === 'sales 1' || sel === 'sales1') {
         return creator === 'hamsalekha' || creator === 'amsulekha' || creator === 'sales 1' || creator === 'sales1';
       }
-      return creator === sel;
+      // Sales Desk page: strictly only Sales Desk notes! Never mixed with Hamsalekha's!
+      return creator === 'sales desk' || creator === 'sales' || (!creator && sel === 'sales desk');
     });
   }, [salesNotes, selectedSalesPerson, isSalesDeskAdmin]);
 
@@ -1490,101 +1490,71 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </div>
 
               {isSalesDeskAdmin ? (
-                <>
-                  {/* All Team Pill - only visible to Sales Desk Admin */}
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {/* Sales Desk Own Workspace Button */}
                   <button
                     type="button"
                     onClick={() => {
-                      setSelectedSalesPerson('all');
+                      setSelectedSalesPerson('Sales Desk');
                       setSalesNotesCurrentPage(1);
                     }}
                     style={{
-                      padding: '7px 16px',
+                      padding: '8px 18px',
                       borderRadius: '24px',
-                      fontSize: '12.5px',
-                      fontWeight: selectedSalesPerson === 'all' ? 800 : 600,
+                      fontSize: '13px',
+                      fontWeight: selectedSalesPerson === 'Sales Desk' ? 800 : 600,
                       cursor: 'pointer',
-                      border: selectedSalesPerson === 'all' ? '1.5px solid #0284c7' : '1px solid #cbd5e1',
-                      backgroundColor: selectedSalesPerson === 'all' ? '#e0f2fe' : '#ffffff',
-                      color: selectedSalesPerson === 'all' ? '#0369a1' : '#64748b',
+                      border: selectedSalesPerson === 'Sales Desk' ? '2px solid #0284c7' : '1px solid #cbd5e1',
+                      backgroundColor: selectedSalesPerson === 'Sales Desk' ? '#e0f2fe' : '#ffffff',
+                      color: selectedSalesPerson === 'Sales Desk' ? '#0369a1' : '#64748b',
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '8px',
-                      transition: 'all 0.15s ease',
-                      boxShadow: selectedSalesPerson === 'all' ? '0 2px 4px rgba(2,132,199,0.15)' : 'none'
+                      boxShadow: selectedSalesPerson === 'Sales Desk' ? '0 2px 6px rgba(2,132,199,0.2)' : 'none',
+                      transition: 'all 0.15s ease'
                     }}
                   >
-                    <span>👥 All Team</span>
-                    <span
-                      style={{
-                        backgroundColor: selectedSalesPerson === 'all' ? '#0284c7' : '#f1f5f9',
-                        color: selectedSalesPerson === 'all' ? '#ffffff' : '#64748b',
-                        fontSize: '11px',
-                        fontWeight: 800,
-                        padding: '1px 7px',
-                        borderRadius: '999px'
-                      }}
-                    >
-                      {salesNotes.filter(n => n.role !== 'admin' && n.created_by !== 'Admin').length}
+                    <span>🏢 Sales Desk (My Desk)</span>
+                    <span style={{ backgroundColor: selectedSalesPerson === 'Sales Desk' ? '#0284c7' : '#f1f5f9', color: selectedSalesPerson === 'Sales Desk' ? '#ffffff' : '#64748b', fontSize: '11px', fontWeight: 800, padding: '2px 8px', borderRadius: '999px' }}>
+                      {salesNotes.filter(n => {
+                        const c = (n.created_by || 'Sales Desk').trim().toLowerCase();
+                        return n.role !== 'admin' && n.created_by !== 'Admin' && (c === 'sales desk' || c === 'sales');
+                      }).length}
                     </span>
                   </button>
 
-                  {/* Individual Sales Person Pills (Sales Desk, Hamsalekha, etc.) */}
-                  {salesPersonsList.map(person => {
-                    const count = salesNotes.filter(n => {
-                      if (n.role === 'admin' || n.created_by === 'Admin') return false;
-                      const c = (n.created_by || 'Sales Desk').trim().toLowerCase();
-                      const p = person.trim().toLowerCase();
-                      if (p === 'hamsalekha' || p === 'amsulekha') return c === 'hamsalekha' || c === 'amsulekha' || c === 'sales 1' || c === 'sales1';
-                      return c === p;
-                    }).length;
-
-                    const isSelected = selectedSalesPerson.toLowerCase() === person.toLowerCase();
-                    const isCurrentLoggedUser = (user?.name || '').toLowerCase() === person.toLowerCase() ||
-                      ((user?.name?.toLowerCase() === 'hamsalekha' || user?.name?.toLowerCase() === 'amsulekha') &&
-                       (person.toLowerCase() === 'hamsalekha' || person.toLowerCase() === 'amsulekha'));
-
-                    return (
-                      <button
-                        key={person}
-                        type="button"
-                        onClick={() => {
-                          setSelectedSalesPerson(person);
-                          setSalesNotesCurrentPage(1);
-                        }}
-                        style={{
-                          padding: '7px 16px',
-                          borderRadius: '24px',
-                          fontSize: '12.5px',
-                          fontWeight: isSelected ? 800 : 600,
-                          cursor: 'pointer',
-                          border: isSelected ? '1.5px solid #1ba37c' : '1px solid #cbd5e1',
-                          backgroundColor: isSelected ? '#ccfbf1' : '#ffffff',
-                          color: isSelected ? '#0f766e' : '#64748b',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          transition: 'all 0.15s ease',
-                          boxShadow: isSelected ? '0 2px 4px rgba(27,163,124,0.15)' : 'none'
-                        }}
-                      >
-                        <span>👤 {person}{isCurrentLoggedUser ? ' (You)' : ''}</span>
-                        <span
-                          style={{
-                            backgroundColor: isSelected ? '#1ba37c' : '#f1f5f9',
-                            color: isSelected ? '#ffffff' : '#64748b',
-                            fontSize: '11px',
-                            fontWeight: 800,
-                            padding: '1px 7px',
-                            borderRadius: '999px'
-                          }}
-                        >
-                          {count}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </>
+                  {/* Hamsalekha Workspace Button (Admin Access) */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedSalesPerson('Hamsalekha');
+                      setSalesNotesCurrentPage(1);
+                    }}
+                    style={{
+                      padding: '8px 18px',
+                      borderRadius: '24px',
+                      fontSize: '13px',
+                      fontWeight: selectedSalesPerson === 'Hamsalekha' ? 800 : 600,
+                      cursor: 'pointer',
+                      border: selectedSalesPerson === 'Hamsalekha' ? '2px solid #1ba37c' : '1px solid #cbd5e1',
+                      backgroundColor: selectedSalesPerson === 'Hamsalekha' ? '#ccfbf1' : '#ffffff',
+                      color: selectedSalesPerson === 'Hamsalekha' ? '#0f766e' : '#64748b',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      boxShadow: selectedSalesPerson === 'Hamsalekha' ? '0 2px 6px rgba(27,163,124,0.2)' : 'none',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    <span>👤 Hamsalekha's Workspace & Reports</span>
+                    <span style={{ backgroundColor: selectedSalesPerson === 'Hamsalekha' ? '#1ba37c' : '#f1f5f9', color: selectedSalesPerson === 'Hamsalekha' ? '#ffffff' : '#64748b', fontSize: '11px', fontWeight: 800, padding: '2px 8px', borderRadius: '999px' }}>
+                      {salesNotes.filter(n => {
+                        const c = (n.created_by || '').trim().toLowerCase();
+                        return n.role !== 'admin' && n.created_by !== 'Admin' && (c === 'hamsalekha' || c === 'amsulekha' || c === 'sales 1' || c === 'sales1');
+                      }).length}
+                    </span>
+                  </button>
+                </div>
               ) : (
                 /* Hamsalekha: View strictly her own workspace pill */
                 <div
@@ -1623,7 +1593,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  setNewSalesNoteCreator(user?.name || (selectedSalesPerson !== 'all' ? selectedSalesPerson : 'Hamsalekha'));
+                  const creator = !isSalesDeskAdmin
+                    ? 'Hamsalekha'
+                    : (selectedSalesPerson === 'Hamsalekha' ? 'Hamsalekha' : 'Sales Desk');
+                  setNewSalesNoteCreator(creator);
                   setShowAddSalesNoteModal(true);
                 }}
                 className="btn btn-primary"
@@ -1641,6 +1614,49 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <span>+ Add Sales Note</span>
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Banner when Sales Desk is inspecting Hamsalekha's workspace */}
+        {isSales && isSalesDeskAdmin && selectedSalesPerson === 'Hamsalekha' && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '10px 16px',
+              backgroundColor: '#f0fdf4',
+              border: '1.5px solid #86efac',
+              borderRadius: '12px',
+              color: '#166534',
+              fontSize: '12.5px',
+              fontWeight: 600,
+              marginBottom: '16px',
+              boxShadow: '0 1px 4px rgba(22, 101, 52, 0.08)'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '15px' }}>👁️</span>
+              <span>
+                Viewing <strong>Hamsalekha's Dedicated Reports & Pipeline</strong> (Sales Desk Admin Access). All metrics and notes below are strictly Hamsalekha's.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSelectedSalesPerson('Sales Desk')}
+              style={{
+                padding: '5px 14px',
+                borderRadius: '8px',
+                backgroundColor: '#ffffff',
+                border: '1px solid #86efac',
+                color: '#166534',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: 'pointer'
+              }}
+            >
+              ← Back to My Sales Desk
+            </button>
           </div>
         )}
 

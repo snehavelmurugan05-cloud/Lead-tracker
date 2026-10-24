@@ -117,9 +117,9 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
   // Sales Person filter state
   const [selectedSalesPerson, setSelectedSalesPerson] = useState<string>(() => {
     if (currentUser?.role === 'sales' && (currentUser?.name?.toLowerCase() !== 'sales desk' && currentUser?.username?.toLowerCase() !== 'sales')) {
-      return currentUser?.name || 'Hamsalekha';
+      return 'Hamsalekha';
     }
-    return 'all';
+    return 'Sales Desk';
   });
 
   // Table filtering, pagination and search state
@@ -676,13 +676,13 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
         const creator = (n.created_by || '').trim().toLowerCase();
         return creator === 'hamsalekha' || creator === 'amsulekha' || creator === 'sales 1' || creator === 'sales1';
       }
-      if (selectedSalesPerson === 'all') return true;
       const creator = (n.created_by || 'Sales Desk').trim().toLowerCase();
       const sel = selectedSalesPerson.trim().toLowerCase();
       if (sel === 'hamsalekha' || sel === 'amsulekha' || sel === 'sales 1' || sel === 'sales1') {
         return creator === 'hamsalekha' || creator === 'amsulekha' || creator === 'sales 1' || creator === 'sales1';
       }
-      return creator === sel;
+      // Sales Desk ledger: strictly only Sales Desk notes!
+      return creator === 'sales desk' || creator === 'sales' || (!creator && sel === 'sales desk');
     });
   }, [notes, selectedSalesPerson, isSalesDeskAdmin]);
 
@@ -1026,75 +1026,69 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
             </span>
 
             {isSalesDeskAdmin ? (
-              <>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 <button
                   type="button"
                   onClick={() => {
-                    setSelectedSalesPerson('all');
+                    setSelectedSalesPerson('Sales Desk');
+                    setQuickNoteCreator('Sales Desk');
                     setCurrentPage(1);
                   }}
                   style={{
-                    padding: '6px 14px',
+                    padding: '6px 16px',
                     borderRadius: '20px',
-                    fontSize: '12px',
-                    fontWeight: selectedSalesPerson === 'all' ? 800 : 600,
+                    fontSize: '12.5px',
+                    fontWeight: selectedSalesPerson === 'Sales Desk' ? 800 : 600,
                     cursor: 'pointer',
-                    border: selectedSalesPerson === 'all' ? '1.5px solid #0284c7' : '1px solid #cbd5e1',
-                    backgroundColor: selectedSalesPerson === 'all' ? '#e0f2fe' : '#ffffff',
-                    color: selectedSalesPerson === 'all' ? '#0369a1' : '#64748b',
+                    border: selectedSalesPerson === 'Sales Desk' ? '2px solid #0284c7' : '1px solid #cbd5e1',
+                    backgroundColor: selectedSalesPerson === 'Sales Desk' ? '#e0f2fe' : '#ffffff',
+                    color: selectedSalesPerson === 'Sales Desk' ? '#0369a1' : '#64748b',
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: '6px'
+                    gap: '6px',
+                    boxShadow: selectedSalesPerson === 'Sales Desk' ? '0 2px 4px rgba(2,132,199,0.18)' : 'none'
                   }}
                 >
-                  <span>👥 All Team</span>
-                  <span style={{ backgroundColor: selectedSalesPerson === 'all' ? '#0284c7' : '#f1f5f9', color: selectedSalesPerson === 'all' ? '#ffffff' : '#64748b', fontSize: '10.5px', fontWeight: 800, padding: '1px 6px', borderRadius: '999px' }}>
-                    {notes.filter(n => n.role !== 'admin' && n.created_by !== 'Admin').length}
+                  <span>🏢 Sales Desk Ledger</span>
+                  <span style={{ backgroundColor: selectedSalesPerson === 'Sales Desk' ? '#0284c7' : '#f1f5f9', color: selectedSalesPerson === 'Sales Desk' ? '#ffffff' : '#64748b', fontSize: '10.5px', fontWeight: 800, padding: '1px 6px', borderRadius: '999px' }}>
+                    {notes.filter(n => {
+                      const c = (n.created_by || 'Sales Desk').trim().toLowerCase();
+                      return n.role !== 'admin' && n.created_by !== 'Admin' && (c === 'sales desk' || c === 'sales');
+                    }).length}
                   </span>
                 </button>
 
-                {salesPersonsList.map(person => {
-                  const count = notes.filter(n => {
-                    if (n.role === 'admin' || n.created_by === 'Admin') return false;
-                    const c = (n.created_by || 'Sales Desk').trim().toLowerCase();
-                    const p = person.trim().toLowerCase();
-                    if (p === 'hamsalekha' || p === 'amsulekha') return c === 'hamsalekha' || c === 'amsulekha' || c === 'sales 1' || c === 'sales1';
-                    return c === p;
-                  }).length;
-
-                  const isSelected = selectedSalesPerson.toLowerCase() === person.toLowerCase();
-                  const isCurrentLoggedUser = (currentUser?.name || '').toLowerCase() === person.toLowerCase();
-
-                  return (
-                    <button
-                      key={person}
-                      type="button"
-                      onClick={() => {
-                        setSelectedSalesPerson(person);
-                        setCurrentPage(1);
-                      }}
-                      style={{
-                        padding: '6px 14px',
-                        borderRadius: '20px',
-                        fontSize: '12px',
-                        fontWeight: isSelected ? 800 : 600,
-                        cursor: 'pointer',
-                        border: isSelected ? '1.5px solid #1ba37c' : '1px solid #cbd5e1',
-                        backgroundColor: isSelected ? '#ccfbf1' : '#ffffff',
-                        color: isSelected ? '#0f766e' : '#64748b',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                      }}
-                    >
-                      <span>👤 {person}{isCurrentLoggedUser ? ' (You)' : ''}</span>
-                      <span style={{ backgroundColor: isSelected ? '#1ba37c' : '#f1f5f9', color: isSelected ? '#ffffff' : '#64748b', fontSize: '10.5px', fontWeight: 800, padding: '1px 6px', borderRadius: '999px' }}>
-                        {count}
-                      </span>
-                    </button>
-                  );
-                })}
-              </>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedSalesPerson('Hamsalekha');
+                    setQuickNoteCreator('Hamsalekha');
+                    setCurrentPage(1);
+                  }}
+                  style={{
+                    padding: '6px 16px',
+                    borderRadius: '20px',
+                    fontSize: '12.5px',
+                    fontWeight: selectedSalesPerson === 'Hamsalekha' ? 800 : 600,
+                    cursor: 'pointer',
+                    border: selectedSalesPerson === 'Hamsalekha' ? '2px solid #1ba37c' : '1px solid #cbd5e1',
+                    backgroundColor: selectedSalesPerson === 'Hamsalekha' ? '#ccfbf1' : '#ffffff',
+                    color: selectedSalesPerson === 'Hamsalekha' ? '#0f766e' : '#64748b',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: selectedSalesPerson === 'Hamsalekha' ? '0 2px 4px rgba(27,163,124,0.18)' : 'none'
+                  }}
+                >
+                  <span>👤 Hamsalekha's Notes Ledger</span>
+                  <span style={{ backgroundColor: selectedSalesPerson === 'Hamsalekha' ? '#1ba37c' : '#f1f5f9', color: selectedSalesPerson === 'Hamsalekha' ? '#ffffff' : '#64748b', fontSize: '10.5px', fontWeight: 800, padding: '1px 6px', borderRadius: '999px' }}>
+                    {notes.filter(n => {
+                      const c = (n.created_by || '').trim().toLowerCase();
+                      return n.role !== 'admin' && n.created_by !== 'Admin' && (c === 'hamsalekha' || c === 'amsulekha' || c === 'sales 1' || c === 'sales1');
+                    }).length}
+                  </span>
+                </button>
+              </div>
             ) : (
               <div
                 style={{
@@ -1118,6 +1112,41 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
             )}
           </div>
         </div>
+
+        {/* Banner when Sales Desk is inspecting Hamsalekha's ledger */}
+        {isSalesDeskAdmin && selectedSalesPerson === 'Hamsalekha' && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '10px 16px',
+              backgroundColor: '#f0fdf4',
+              border: '1.5px solid #86efac',
+              borderRadius: '10px',
+              color: '#166534',
+              fontSize: '12.5px',
+              fontWeight: 600,
+              marginBottom: '16px'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>👁️</span>
+              <span>Viewing <strong>Hamsalekha's Dedicated Notes Ledger</strong> (Sales Desk Admin Access). Entries are kept separate from Sales Desk.</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedSalesPerson('Sales Desk');
+                setQuickNoteCreator('Sales Desk');
+                setCurrentPage(1);
+              }}
+              style={{ padding: '4px 12px', borderRadius: '6px', backgroundColor: '#ffffff', border: '1px solid #86efac', color: '#166534', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}
+            >
+              ← Back to Sales Desk Ledger
+            </button>
+          </div>
+        )}
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '14px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>

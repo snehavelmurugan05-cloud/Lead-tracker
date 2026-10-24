@@ -191,16 +191,19 @@ export const App: React.FC = () => {
           const isCompletedStage = (s: string | null) => s === 'Customer Onboarding' || s === 'Converted';
 
           if (userRole === 'sales') {
-            const isIndividualSales = currentUser?.name && currentUser.name.toLowerCase() !== 'sales desk';
+            const isIndividualSales = currentUser?.name && currentUser.name.toLowerCase() !== 'sales desk' && currentUser?.username?.toLowerCase() !== 'sales';
             const activeReminders = nts.filter(n => {
               if (n.is_completed) return false;
               if (isCompletedStage(n.stage)) return false;
               if (n.action_item === 'Converted') return false;
               if (!n.reminderDate) return false;
+              const c = (n.created_by || 'Sales Desk').trim().toLowerCase();
               if (isIndividualSales) {
-                const c = (n.created_by || 'Sales Desk').toLowerCase();
-                const myName = (currentUser?.name || '').toLowerCase();
-                if (!c.includes(myName) && c !== 'sales 1' && c !== 'sales1' && c !== 'hamsalekha' && c !== 'amsulekha') return false;
+                // Hamsalekha: strictly only her own reminders
+                if (c !== 'sales 1' && c !== 'sales1' && c !== 'hamsalekha' && c !== 'amsulekha') return false;
+              } else {
+                // Sales Desk: strictly only Sales Desk reminders (never Hamsalekha's)
+                if (c !== 'sales desk' && c !== 'sales') return false;
               }
               return n.reminderDate <= todayDateStr;
             });
