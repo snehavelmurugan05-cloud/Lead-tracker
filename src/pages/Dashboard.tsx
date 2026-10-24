@@ -177,9 +177,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [editingSalesNote, setEditingSalesNote] = useState<Note | null>(null);
   const [noteToDelete, setNoteToDelete] = useState<Note | null>(null);
   const [showAddSalesNoteModal, setShowAddSalesNoteModal] = useState<boolean>(false);
+  // Check if current logged-in user is Sales Desk Admin (or System Admin)
+  const isSalesDeskAdmin = user?.role === 'admin' ||
+    (user?.role === 'sales' && (
+      (user?.name || '').trim().toLowerCase() === 'sales desk' ||
+      (user?.username || '').trim().toLowerCase() === 'sales'
+    ));
+
   const [selectedSalesPerson, setSelectedSalesPerson] = useState<string>(() => {
-    if (user?.role === 'sales' && user?.name && user.name.toLowerCase() !== 'sales desk') {
-      return user.name;
+    if (user?.role === 'sales' && (user?.name?.toLowerCase() !== 'sales desk' && user?.username?.toLowerCase() !== 'sales')) {
+      return user?.name || 'Hamsalekha';
     }
     return 'all';
   });
@@ -636,6 +643,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   // Sales Person list and scoped notes
   const salesPersonsList = useMemo(() => {
+    if (!isSalesDeskAdmin) {
+      return ['Hamsalekha'];
+    }
     const list = ['Sales Desk', 'Hamsalekha'];
     salesNotes.forEach(n => {
       if (n.created_by && n.created_by !== 'Admin' && n.created_by !== 'System' && !list.includes(n.created_by)) {
@@ -643,12 +653,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
       }
     });
     return list;
-  }, [salesNotes]);
+  }, [salesNotes, isSalesDeskAdmin]);
 
   // Scoped sales notes according to selectedSalesPerson filter ('all', 'Sales Desk', 'Hamsalekha')
   const scopedSalesNotes = useMemo(() => {
     return salesNotes.filter(n => {
       if (n.role === 'admin' || n.created_by === 'Admin') return false;
+      // If user is Hamsalekha (individual sales), strictly restrict to her own notes
+      if (!isSalesDeskAdmin) {
+        const creator = (n.created_by || '').trim().toLowerCase();
+        return creator === 'hamsalekha' || creator === 'amsulekha' || creator === 'sales 1' || creator === 'sales1';
+      }
       if (selectedSalesPerson === 'all') return true;
       const creator = (n.created_by || 'Sales Desk').trim().toLowerCase();
       const sel = selectedSalesPerson.trim().toLowerCase();
@@ -657,7 +672,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       }
       return creator === sel;
     });
-  }, [salesNotes, selectedSalesPerson]);
+  }, [salesNotes, selectedSalesPerson, isSalesDeskAdmin]);
 
   // Sales-specific note-driven metrics (for Sales role based on scopedSalesNotes)
   const todayDateStr = new Date().toISOString().split('T')[0];
@@ -1474,99 +1489,134 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 <span>Sales Specialist:</span>
               </div>
 
-              {/* All Team Pill */}
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedSalesPerson('all');
-                  setSalesNotesCurrentPage(1);
-                }}
-                style={{
-                  padding: '7px 16px',
-                  borderRadius: '24px',
-                  fontSize: '12.5px',
-                  fontWeight: selectedSalesPerson === 'all' ? 800 : 600,
-                  cursor: 'pointer',
-                  border: selectedSalesPerson === 'all' ? '1.5px solid #0284c7' : '1px solid #cbd5e1',
-                  backgroundColor: selectedSalesPerson === 'all' ? '#e0f2fe' : '#ffffff',
-                  color: selectedSalesPerson === 'all' ? '#0369a1' : '#64748b',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  transition: 'all 0.15s ease',
-                  boxShadow: selectedSalesPerson === 'all' ? '0 2px 4px rgba(2,132,199,0.15)' : 'none'
-                }}
-              >
-                <span>👥 All Team</span>
-                <span
-                  style={{
-                    backgroundColor: selectedSalesPerson === 'all' ? '#0284c7' : '#f1f5f9',
-                    color: selectedSalesPerson === 'all' ? '#ffffff' : '#64748b',
-                    fontSize: '11px',
-                    fontWeight: 800,
-                    padding: '1px 7px',
-                    borderRadius: '999px'
-                  }}
-                >
-                  {salesNotes.filter(n => n.role !== 'admin' && n.created_by !== 'Admin').length}
-                </span>
-              </button>
-
-              {/* Individual Sales Person Pills (Sales Desk, Hamsalekha, etc.) */}
-              {salesPersonsList.map(person => {
-                const count = salesNotes.filter(n => {
-                  if (n.role === 'admin' || n.created_by === 'Admin') return false;
-                  const c = (n.created_by || 'Sales Desk').trim().toLowerCase();
-                  const p = person.trim().toLowerCase();
-                  if (p === 'hamsalekha' || p === 'amsulekha') return c === 'hamsalekha' || c === 'amsulekha' || c === 'sales 1' || c === 'sales1';
-                  return c === p;
-                }).length;
-
-                const isSelected = selectedSalesPerson.toLowerCase() === person.toLowerCase();
-                const isCurrentLoggedUser = (user?.name || '').toLowerCase() === person.toLowerCase() ||
-                  ((user?.name?.toLowerCase() === 'hamsalekha' || user?.name?.toLowerCase() === 'amsulekha') &&
-                   (person.toLowerCase() === 'hamsalekha' || person.toLowerCase() === 'amsulekha'));
-
-                return (
+              {isSalesDeskAdmin ? (
+                <>
+                  {/* All Team Pill - only visible to Sales Desk Admin */}
                   <button
-                    key={person}
                     type="button"
                     onClick={() => {
-                      setSelectedSalesPerson(person);
+                      setSelectedSalesPerson('all');
                       setSalesNotesCurrentPage(1);
                     }}
                     style={{
                       padding: '7px 16px',
                       borderRadius: '24px',
                       fontSize: '12.5px',
-                      fontWeight: isSelected ? 800 : 600,
+                      fontWeight: selectedSalesPerson === 'all' ? 800 : 600,
                       cursor: 'pointer',
-                      border: isSelected ? '1.5px solid #1ba37c' : '1px solid #cbd5e1',
-                      backgroundColor: isSelected ? '#ccfbf1' : '#ffffff',
-                      color: isSelected ? '#0f766e' : '#64748b',
+                      border: selectedSalesPerson === 'all' ? '1.5px solid #0284c7' : '1px solid #cbd5e1',
+                      backgroundColor: selectedSalesPerson === 'all' ? '#e0f2fe' : '#ffffff',
+                      color: selectedSalesPerson === 'all' ? '#0369a1' : '#64748b',
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '8px',
                       transition: 'all 0.15s ease',
-                      boxShadow: isSelected ? '0 2px 4px rgba(27,163,124,0.15)' : 'none'
+                      boxShadow: selectedSalesPerson === 'all' ? '0 2px 4px rgba(2,132,199,0.15)' : 'none'
                     }}
                   >
-                    <span>👤 {person}{isCurrentLoggedUser ? ' (You)' : ''}</span>
+                    <span>👥 All Team</span>
                     <span
                       style={{
-                        backgroundColor: isSelected ? '#1ba37c' : '#f1f5f9',
-                        color: isSelected ? '#ffffff' : '#64748b',
+                        backgroundColor: selectedSalesPerson === 'all' ? '#0284c7' : '#f1f5f9',
+                        color: selectedSalesPerson === 'all' ? '#ffffff' : '#64748b',
                         fontSize: '11px',
                         fontWeight: 800,
                         padding: '1px 7px',
                         borderRadius: '999px'
                       }}
                     >
-                      {count}
+                      {salesNotes.filter(n => n.role !== 'admin' && n.created_by !== 'Admin').length}
                     </span>
                   </button>
-                );
-              })}
+
+                  {/* Individual Sales Person Pills (Sales Desk, Hamsalekha, etc.) */}
+                  {salesPersonsList.map(person => {
+                    const count = salesNotes.filter(n => {
+                      if (n.role === 'admin' || n.created_by === 'Admin') return false;
+                      const c = (n.created_by || 'Sales Desk').trim().toLowerCase();
+                      const p = person.trim().toLowerCase();
+                      if (p === 'hamsalekha' || p === 'amsulekha') return c === 'hamsalekha' || c === 'amsulekha' || c === 'sales 1' || c === 'sales1';
+                      return c === p;
+                    }).length;
+
+                    const isSelected = selectedSalesPerson.toLowerCase() === person.toLowerCase();
+                    const isCurrentLoggedUser = (user?.name || '').toLowerCase() === person.toLowerCase() ||
+                      ((user?.name?.toLowerCase() === 'hamsalekha' || user?.name?.toLowerCase() === 'amsulekha') &&
+                       (person.toLowerCase() === 'hamsalekha' || person.toLowerCase() === 'amsulekha'));
+
+                    return (
+                      <button
+                        key={person}
+                        type="button"
+                        onClick={() => {
+                          setSelectedSalesPerson(person);
+                          setSalesNotesCurrentPage(1);
+                        }}
+                        style={{
+                          padding: '7px 16px',
+                          borderRadius: '24px',
+                          fontSize: '12.5px',
+                          fontWeight: isSelected ? 800 : 600,
+                          cursor: 'pointer',
+                          border: isSelected ? '1.5px solid #1ba37c' : '1px solid #cbd5e1',
+                          backgroundColor: isSelected ? '#ccfbf1' : '#ffffff',
+                          color: isSelected ? '#0f766e' : '#64748b',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          transition: 'all 0.15s ease',
+                          boxShadow: isSelected ? '0 2px 4px rgba(27,163,124,0.15)' : 'none'
+                        }}
+                      >
+                        <span>👤 {person}{isCurrentLoggedUser ? ' (You)' : ''}</span>
+                        <span
+                          style={{
+                            backgroundColor: isSelected ? '#1ba37c' : '#f1f5f9',
+                            color: isSelected ? '#ffffff' : '#64748b',
+                            fontSize: '11px',
+                            fontWeight: 800,
+                            padding: '1px 7px',
+                            borderRadius: '999px'
+                          }}
+                        >
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </>
+              ) : (
+                /* Hamsalekha: View strictly her own workspace pill */
+                <div
+                  style={{
+                    padding: '7px 16px',
+                    borderRadius: '24px',
+                    fontSize: '12.5px',
+                    fontWeight: 800,
+                    border: '1.5px solid #1ba37c',
+                    backgroundColor: '#ccfbf1',
+                    color: '#0f766e',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    boxShadow: '0 2px 4px rgba(27,163,124,0.15)'
+                  }}
+                >
+                  <span>👤 My Pipeline · Hamsalekha</span>
+                  <span
+                    style={{
+                      backgroundColor: '#1ba37c',
+                      color: '#ffffff',
+                      fontSize: '11px',
+                      fontWeight: 800,
+                      padding: '1px 7px',
+                      borderRadius: '999px'
+                    }}
+                  >
+                    {scopedSalesNotes.length}
+                  </span>
+                </div>
+              )}
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -3832,11 +3882,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   <select
                     className="form-input"
                     style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', background: 'hsl(var(--background))' }}
-                    value={editingSalesNote.created_by || 'Sales Desk'}
+                    value={editingSalesNote.created_by || (isSalesDeskAdmin ? 'Sales Desk' : 'Hamsalekha')}
                     onChange={e => setEditingSalesNote({ ...editingSalesNote, created_by: e.target.value })}
+                    disabled={!isSalesDeskAdmin}
                   >
                     <option value="Hamsalekha">👤 Hamsalekha (Sales 1)</option>
-                    <option value="Sales Desk">👤 Sales Desk</option>
+                    {isSalesDeskAdmin && <option value="Sales Desk">👤 Sales Desk</option>}
                   </select>
                 </div>
               </div>
@@ -4032,9 +4083,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', background: 'hsl(var(--background))', fontSize: '12.5px' }}
                     value={newSalesNoteCreator}
                     onChange={e => setNewSalesNoteCreator(e.target.value)}
+                    disabled={!isSalesDeskAdmin}
                   >
                     <option value="Hamsalekha">👤 Hamsalekha (Sales 1)</option>
-                    <option value="Sales Desk">👤 Sales Desk</option>
+                    {isSalesDeskAdmin && <option value="Sales Desk">👤 Sales Desk</option>}
                   </select>
                 </div>
               </div>

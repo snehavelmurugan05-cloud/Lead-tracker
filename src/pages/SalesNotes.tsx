@@ -107,10 +107,17 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
   const [quickNoteCreator, setQuickNoteCreator] = useState<string>(() => currentUser?.name || 'Hamsalekha');
   const [isSaving, setIsSaving] = useState(false);
 
+  // Check if current user is Sales Desk Admin (or System Admin)
+  const isSalesDeskAdmin = currentUser?.role === 'admin' ||
+    (currentUser?.role === 'sales' && (
+      (currentUser?.name || '').trim().toLowerCase() === 'sales desk' ||
+      (currentUser?.username || '').trim().toLowerCase() === 'sales'
+    ));
+
   // Sales Person filter state
   const [selectedSalesPerson, setSelectedSalesPerson] = useState<string>(() => {
-    if (currentUser?.role === 'sales' && currentUser?.name && currentUser.name.toLowerCase() !== 'sales desk') {
-      return currentUser.name;
+    if (currentUser?.role === 'sales' && (currentUser?.name?.toLowerCase() !== 'sales desk' && currentUser?.username?.toLowerCase() !== 'sales')) {
+      return currentUser?.name || 'Hamsalekha';
     }
     return 'all';
   });
@@ -649,6 +656,9 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
 
   // Sales Person list and scoped notes
   const salesPersonsList = useMemo(() => {
+    if (!isSalesDeskAdmin) {
+      return ['Hamsalekha'];
+    }
     const list = ['Sales Desk', 'Hamsalekha'];
     notes.forEach(n => {
       if (n.created_by && n.created_by !== 'Admin' && n.created_by !== 'System' && !list.includes(n.created_by)) {
@@ -656,11 +666,16 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
       }
     });
     return list;
-  }, [notes]);
+  }, [notes, isSalesDeskAdmin]);
 
   const scopedNotes = useMemo(() => {
     return notes.filter(n => {
       if (n.role === 'admin' || n.created_by === 'Admin') return false;
+      // If user is Hamsalekha, strictly show only her own notes
+      if (!isSalesDeskAdmin) {
+        const creator = (n.created_by || '').trim().toLowerCase();
+        return creator === 'hamsalekha' || creator === 'amsulekha' || creator === 'sales 1' || creator === 'sales1';
+      }
       if (selectedSalesPerson === 'all') return true;
       const creator = (n.created_by || 'Sales Desk').trim().toLowerCase();
       const sel = selectedSalesPerson.trim().toLowerCase();
@@ -669,7 +684,7 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
       }
       return creator === sel;
     });
-  }, [notes, selectedSalesPerson]);
+  }, [notes, selectedSalesPerson, isSalesDeskAdmin]);
 
   // Notes strictly matching the active sales person & date filter for stage counts and pipeline distribution
   const activeDateScopedNotes = useMemo(() => {
@@ -941,6 +956,7 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
                 <select
                   value={quickNoteCreator}
                   onChange={(e) => setQuickNoteCreator(e.target.value)}
+                  disabled={!isSalesDeskAdmin}
                   style={{
                     padding: '8px 12px',
                     borderRadius: '8px',
@@ -952,7 +968,7 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
                   }}
                 >
                   <option value="Hamsalekha">👤 Hamsalekha (Sales 1)</option>
-                  <option value="Sales Desk">👤 Sales Desk</option>
+                  {isSalesDeskAdmin && <option value="Sales Desk">👤 Sales Desk</option>}
                 </select>
               </div>
             </div>
@@ -1009,73 +1025,97 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
               Sales Specialist:
             </span>
 
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedSalesPerson('all');
-                setCurrentPage(1);
-              }}
-              style={{
-                padding: '6px 14px',
-                borderRadius: '20px',
-                fontSize: '12px',
-                fontWeight: selectedSalesPerson === 'all' ? 800 : 600,
-                cursor: 'pointer',
-                border: selectedSalesPerson === 'all' ? '1.5px solid #0284c7' : '1px solid #cbd5e1',
-                backgroundColor: selectedSalesPerson === 'all' ? '#e0f2fe' : '#ffffff',
-                color: selectedSalesPerson === 'all' ? '#0369a1' : '#64748b',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
-            >
-              <span>👥 All Team</span>
-              <span style={{ backgroundColor: selectedSalesPerson === 'all' ? '#0284c7' : '#f1f5f9', color: selectedSalesPerson === 'all' ? '#ffffff' : '#64748b', fontSize: '10.5px', fontWeight: 800, padding: '1px 6px', borderRadius: '999px' }}>
-                {notes.filter(n => n.role !== 'admin' && n.created_by !== 'Admin').length}
-              </span>
-            </button>
-
-            {salesPersonsList.map(person => {
-              const count = notes.filter(n => {
-                if (n.role === 'admin' || n.created_by === 'Admin') return false;
-                const c = (n.created_by || 'Sales Desk').trim().toLowerCase();
-                const p = person.trim().toLowerCase();
-                if (p === 'hamsalekha' || p === 'amsulekha') return c === 'hamsalekha' || c === 'amsulekha' || c === 'sales 1' || c === 'sales1';
-                return c === p;
-              }).length;
-
-              const isSelected = selectedSalesPerson.toLowerCase() === person.toLowerCase();
-              const isCurrentLoggedUser = (currentUser?.name || '').toLowerCase() === person.toLowerCase();
-
-              return (
+            {isSalesDeskAdmin ? (
+              <>
                 <button
-                  key={person}
                   type="button"
                   onClick={() => {
-                    setSelectedSalesPerson(person);
+                    setSelectedSalesPerson('all');
                     setCurrentPage(1);
                   }}
                   style={{
                     padding: '6px 14px',
                     borderRadius: '20px',
                     fontSize: '12px',
-                    fontWeight: isSelected ? 800 : 600,
+                    fontWeight: selectedSalesPerson === 'all' ? 800 : 600,
                     cursor: 'pointer',
-                    border: isSelected ? '1.5px solid #1ba37c' : '1px solid #cbd5e1',
-                    backgroundColor: isSelected ? '#ccfbf1' : '#ffffff',
-                    color: isSelected ? '#0f766e' : '#64748b',
+                    border: selectedSalesPerson === 'all' ? '1.5px solid #0284c7' : '1px solid #cbd5e1',
+                    backgroundColor: selectedSalesPerson === 'all' ? '#e0f2fe' : '#ffffff',
+                    color: selectedSalesPerson === 'all' ? '#0369a1' : '#64748b',
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '6px'
                   }}
                 >
-                  <span>👤 {person}{isCurrentLoggedUser ? ' (You)' : ''}</span>
-                  <span style={{ backgroundColor: isSelected ? '#1ba37c' : '#f1f5f9', color: isSelected ? '#ffffff' : '#64748b', fontSize: '10.5px', fontWeight: 800, padding: '1px 6px', borderRadius: '999px' }}>
-                    {count}
+                  <span>👥 All Team</span>
+                  <span style={{ backgroundColor: selectedSalesPerson === 'all' ? '#0284c7' : '#f1f5f9', color: selectedSalesPerson === 'all' ? '#ffffff' : '#64748b', fontSize: '10.5px', fontWeight: 800, padding: '1px 6px', borderRadius: '999px' }}>
+                    {notes.filter(n => n.role !== 'admin' && n.created_by !== 'Admin').length}
                   </span>
                 </button>
-              );
-            })}
+
+                {salesPersonsList.map(person => {
+                  const count = notes.filter(n => {
+                    if (n.role === 'admin' || n.created_by === 'Admin') return false;
+                    const c = (n.created_by || 'Sales Desk').trim().toLowerCase();
+                    const p = person.trim().toLowerCase();
+                    if (p === 'hamsalekha' || p === 'amsulekha') return c === 'hamsalekha' || c === 'amsulekha' || c === 'sales 1' || c === 'sales1';
+                    return c === p;
+                  }).length;
+
+                  const isSelected = selectedSalesPerson.toLowerCase() === person.toLowerCase();
+                  const isCurrentLoggedUser = (currentUser?.name || '').toLowerCase() === person.toLowerCase();
+
+                  return (
+                    <button
+                      key={person}
+                      type="button"
+                      onClick={() => {
+                        setSelectedSalesPerson(person);
+                        setCurrentPage(1);
+                      }}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: '20px',
+                        fontSize: '12px',
+                        fontWeight: isSelected ? 800 : 600,
+                        cursor: 'pointer',
+                        border: isSelected ? '1.5px solid #1ba37c' : '1px solid #cbd5e1',
+                        backgroundColor: isSelected ? '#ccfbf1' : '#ffffff',
+                        color: isSelected ? '#0f766e' : '#64748b',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                    >
+                      <span>👤 {person}{isCurrentLoggedUser ? ' (You)' : ''}</span>
+                      <span style={{ backgroundColor: isSelected ? '#1ba37c' : '#f1f5f9', color: isSelected ? '#ffffff' : '#64748b', fontSize: '10.5px', fontWeight: 800, padding: '1px 6px', borderRadius: '999px' }}>
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </>
+            ) : (
+              <div
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: '20px',
+                  fontSize: '12px',
+                  fontWeight: 800,
+                  border: '1.5px solid #1ba37c',
+                  backgroundColor: '#ccfbf1',
+                  color: '#0f766e',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <span>👤 My Notes · Hamsalekha</span>
+                <span style={{ backgroundColor: '#1ba37c', color: '#ffffff', fontSize: '10.5px', fontWeight: 800, padding: '1px 6px', borderRadius: '999px' }}>
+                  {scopedNotes.length}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -1929,8 +1969,9 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
                     Sales Specialist / Logged By
                   </label>
                   <select
-                    value={editingNote.created_by || 'Sales Desk'}
+                    value={editingNote.created_by || (isSalesDeskAdmin ? 'Sales Desk' : 'Hamsalekha')}
                     onChange={(e) => setEditingNote({ ...editingNote, created_by: e.target.value })}
+                    disabled={!isSalesDeskAdmin}
                     style={{
                       width: '100%',
                       padding: '8px 12px',
@@ -1942,7 +1983,7 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
                     }}
                   >
                     <option value="Hamsalekha">👤 Hamsalekha (Sales 1)</option>
-                    <option value="Sales Desk">👤 Sales Desk</option>
+                    {isSalesDeskAdmin && <option value="Sales Desk">👤 Sales Desk</option>}
                   </select>
                 </div>
               </div>

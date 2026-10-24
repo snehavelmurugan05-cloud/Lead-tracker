@@ -303,13 +303,21 @@ export const Header: React.FC<HeaderProps> = ({
   const isCompletedStage = (stg: string | null | undefined) => 
     Boolean(stg && (stg === 'Customer Onboarding' || stg === 'Converted'));
 
-  const isIndividualSales = isSales && currentUser?.name && currentUser.name.toLowerCase() !== 'sales desk';
+  const isIndividualSales = isSales && currentUser?.name && currentUser.name.toLowerCase() !== 'sales desk' && currentUser.username?.toLowerCase() !== 'sales';
 
   const matchesSalesScope = (n: Note) => {
-    if (!isIndividualSales || salesReminderScope === 'all') return true;
-    const c = (n.created_by || 'Sales Desk').toLowerCase();
-    const myName = (currentUser?.name || '').toLowerCase();
-    return c.includes(myName) || c === 'sales 1' || c === 'sales1';
+    if (isIndividualSales) {
+      // Hamsalekha strictly only views her own notes & reminders
+      const c = (n.created_by || '').toLowerCase();
+      const myName = (currentUser?.name || '').toLowerCase();
+      return c.includes(myName) || c === 'hamsalekha' || c === 'amsulekha' || c === 'sales 1' || c === 'sales1';
+    }
+    // Sales Desk Admin: can toggle between all team sales and sales desk only
+    if (salesReminderScope === 'mine') {
+      const c = (n.created_by || 'Sales Desk').toLowerCase();
+      return c === 'sales desk' || c === 'sales';
+    }
+    return true;
   };
 
   // Active uncompleted sales notes
@@ -502,12 +510,15 @@ export const Header: React.FC<HeaderProps> = ({
       )
     : [];
 
-  // Sales Search: searches sales recent notes
+  // Sales Search: searches sales recent notes (Hamsalekha only searches her notes; Sales Desk can search all)
   const matchingSalesNotes: Note[] = (isSales && cleanQuery)
-    ? salesNotes.filter(n =>
-        n.content.toLowerCase().includes(cleanQuery) ||
-        (n.stage && n.stage.toLowerCase().includes(cleanQuery))
-      )
+    ? salesNotes.filter(n => {
+        if (isIndividualSales && !matchesSalesScope(n)) return false;
+        return (
+          n.content.toLowerCase().includes(cleanQuery) ||
+          (n.stage && n.stage.toLowerCase().includes(cleanQuery))
+        );
+      })
     : [];
 
   // Admin Search: searches leads, notes, and courses (Admin only)
@@ -1119,28 +1130,9 @@ export const Header: React.FC<HeaderProps> = ({
                       </div>
                     )}
 
-                    {/* Individual Sales Person Scope Switcher (My Reminders vs All Team) */}
-                    {isIndividualSales && (
+                    {/* Sales Desk Admin Scope Switcher */}
+                    {!isIndividualSales && isSales && (
                       <div style={{ display: 'flex', gap: '6px', marginBottom: '8px', padding: '3px', backgroundColor: '#f1f5f9', borderRadius: '8px' }}>
-                        <button
-                          type="button"
-                          onClick={() => setSalesReminderScope('mine')}
-                          style={{
-                            flex: 1,
-                            padding: '5px 8px',
-                            borderRadius: '6px',
-                            border: 'none',
-                            fontSize: '11px',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            backgroundColor: salesReminderScope === 'mine' ? '#ffffff' : 'transparent',
-                            color: salesReminderScope === 'mine' ? '#0f766e' : '#64748b',
-                            boxShadow: salesReminderScope === 'mine' ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
-                            transition: 'all 0.15s ease'
-                          }}
-                        >
-                          👤 My Reminders
-                        </button>
                         <button
                           type="button"
                           onClick={() => setSalesReminderScope('all')}
@@ -1158,7 +1150,26 @@ export const Header: React.FC<HeaderProps> = ({
                             transition: 'all 0.15s ease'
                           }}
                         >
-                          👥 All Team
+                          👥 All Sales Reminders
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSalesReminderScope('mine')}
+                          style={{
+                            flex: 1,
+                            padding: '5px 8px',
+                            borderRadius: '6px',
+                            border: 'none',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            backgroundColor: salesReminderScope === 'mine' ? '#ffffff' : 'transparent',
+                            color: salesReminderScope === 'mine' ? '#0f766e' : '#64748b',
+                            boxShadow: salesReminderScope === 'mine' ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          👤 Sales Desk Only
                         </button>
                       </div>
                     )}

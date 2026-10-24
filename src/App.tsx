@@ -200,7 +200,7 @@ export const App: React.FC = () => {
               if (isIndividualSales) {
                 const c = (n.created_by || 'Sales Desk').toLowerCase();
                 const myName = (currentUser?.name || '').toLowerCase();
-                if (!c.includes(myName) && c !== 'sales 1' && c !== 'sales1') return false;
+                if (!c.includes(myName) && c !== 'sales 1' && c !== 'sales1' && c !== 'hamsalekha' && c !== 'amsulekha') return false;
               }
               return n.reminderDate <= todayDateStr;
             });
