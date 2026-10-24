@@ -104,22 +104,27 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
   const [quickNoteStage, setQuickNoteStage] = useState<NoteStage | ''>('');
   const [quickNoteCategory, setQuickNoteCategory] = useState<SalesWorkstreamCategory | ''>('');
   const [quickNoteReminder, setQuickNoteReminder] = useState('');
-  const [quickNoteCreator, setQuickNoteCreator] = useState<string>(() => currentUser?.name || 'Hamsalekha');
+  const [quickNoteCreator, setQuickNoteCreator] = useState<string>(() => currentUser?.name || 'Kanchana');
   const [isSaving, setIsSaving] = useState(false);
 
-  // Check if current user is Sales Desk Admin (or System Admin)
+  // Check if current user is Kanchana (Sales Admin) or System Admin
   const isSalesDeskAdmin = currentUser?.role === 'admin' ||
     (currentUser?.role === 'sales' && (
+      (currentUser?.name || '').trim().toLowerCase() === 'kanchana' ||
       (currentUser?.name || '').trim().toLowerCase() === 'sales desk' ||
       (currentUser?.username || '').trim().toLowerCase() === 'sales'
     ));
 
   // Sales Person filter state
   const [selectedSalesPerson, setSelectedSalesPerson] = useState<string>(() => {
-    if (currentUser?.role === 'sales' && (currentUser?.name?.toLowerCase() !== 'sales desk' && currentUser?.username?.toLowerCase() !== 'sales')) {
+    if (currentUser?.role === 'sales' && (
+      currentUser?.name?.toLowerCase() !== 'kanchana' &&
+      currentUser?.name?.toLowerCase() !== 'sales desk' &&
+      currentUser?.username?.toLowerCase() !== 'sales'
+    )) {
       return 'Hamsalekha';
     }
-    return 'Sales Desk';
+    return 'Kanchana';
   });
 
   // Table filtering, pagination and search state
@@ -659,7 +664,7 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
     if (!isSalesDeskAdmin) {
       return ['Hamsalekha'];
     }
-    const list = ['Sales Desk', 'Hamsalekha'];
+    const list = ['Kanchana', 'Hamsalekha'];
     notes.forEach(n => {
       if (n.created_by && n.created_by !== 'Admin' && n.created_by !== 'System' && !list.includes(n.created_by)) {
         list.push(n.created_by);
@@ -676,13 +681,13 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
         const creator = (n.created_by || '').trim().toLowerCase();
         return creator === 'hamsalekha' || creator === 'amsulekha' || creator === 'sales 1' || creator === 'sales1';
       }
-      const creator = (n.created_by || 'Sales Desk').trim().toLowerCase();
+      const creator = (n.created_by || 'Kanchana').trim().toLowerCase();
       const sel = selectedSalesPerson.trim().toLowerCase();
       if (sel === 'hamsalekha' || sel === 'amsulekha' || sel === 'sales 1' || sel === 'sales1') {
         return creator === 'hamsalekha' || creator === 'amsulekha' || creator === 'sales 1' || creator === 'sales1';
       }
-      // Sales Desk ledger: strictly only Sales Desk notes!
-      return creator === 'sales desk' || creator === 'sales' || (!creator && sel === 'sales desk');
+      // Kanchana ledger: strictly only Kanchana / Sales Desk notes!
+      return creator === 'kanchana' || creator === 'sales desk' || creator === 'sales' || (!creator && (sel === 'kanchana' || sel === 'sales desk'));
     });
   }, [notes, selectedSalesPerson, isSalesDeskAdmin]);
 
@@ -968,7 +973,7 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
                   }}
                 >
                   <option value="Hamsalekha">👤 Hamsalekha (Sales 1)</option>
-                  {isSalesDeskAdmin && <option value="Sales Desk">👤 Sales Desk</option>}
+                  {isSalesDeskAdmin && <option value="Kanchana">👤 Kanchana</option>}
                 </select>
               </div>
             </div>
@@ -1030,30 +1035,30 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    setSelectedSalesPerson('Sales Desk');
-                    setQuickNoteCreator('Sales Desk');
+                    setSelectedSalesPerson('Kanchana');
+                    setQuickNoteCreator('Kanchana');
                     setCurrentPage(1);
                   }}
                   style={{
                     padding: '6px 16px',
                     borderRadius: '20px',
                     fontSize: '12.5px',
-                    fontWeight: selectedSalesPerson === 'Sales Desk' ? 800 : 600,
+                    fontWeight: selectedSalesPerson === 'Kanchana' || selectedSalesPerson === 'Sales Desk' ? 800 : 600,
                     cursor: 'pointer',
-                    border: selectedSalesPerson === 'Sales Desk' ? '2px solid #0284c7' : '1px solid #cbd5e1',
-                    backgroundColor: selectedSalesPerson === 'Sales Desk' ? '#e0f2fe' : '#ffffff',
-                    color: selectedSalesPerson === 'Sales Desk' ? '#0369a1' : '#64748b',
+                    border: selectedSalesPerson === 'Kanchana' || selectedSalesPerson === 'Sales Desk' ? '2px solid #0284c7' : '1px solid #cbd5e1',
+                    backgroundColor: selectedSalesPerson === 'Kanchana' || selectedSalesPerson === 'Sales Desk' ? '#e0f2fe' : '#ffffff',
+                    color: selectedSalesPerson === 'Kanchana' || selectedSalesPerson === 'Sales Desk' ? '#0369a1' : '#64748b',
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '6px',
-                    boxShadow: selectedSalesPerson === 'Sales Desk' ? '0 2px 4px rgba(2,132,199,0.18)' : 'none'
+                    boxShadow: selectedSalesPerson === 'Kanchana' || selectedSalesPerson === 'Sales Desk' ? '0 2px 4px rgba(2,132,199,0.18)' : 'none'
                   }}
                 >
-                  <span>🏢 Sales Desk Ledger</span>
-                  <span style={{ backgroundColor: selectedSalesPerson === 'Sales Desk' ? '#0284c7' : '#f1f5f9', color: selectedSalesPerson === 'Sales Desk' ? '#ffffff' : '#64748b', fontSize: '10.5px', fontWeight: 800, padding: '1px 6px', borderRadius: '999px' }}>
+                  <span>🏢 Kanchana Ledger</span>
+                  <span style={{ backgroundColor: selectedSalesPerson === 'Kanchana' || selectedSalesPerson === 'Sales Desk' ? '#0284c7' : '#f1f5f9', color: selectedSalesPerson === 'Kanchana' || selectedSalesPerson === 'Sales Desk' ? '#ffffff' : '#64748b', fontSize: '10.5px', fontWeight: 800, padding: '1px 6px', borderRadius: '999px' }}>
                     {notes.filter(n => {
-                      const c = (n.created_by || 'Sales Desk').trim().toLowerCase();
-                      return n.role !== 'admin' && n.created_by !== 'Admin' && (c === 'sales desk' || c === 'sales');
+                      const c = (n.created_by || 'Kanchana').trim().toLowerCase();
+                      return n.role !== 'admin' && n.created_by !== 'Admin' && (c === 'kanchana' || c === 'sales desk' || c === 'sales');
                     }).length}
                   </span>
                 </button>
@@ -1113,7 +1118,7 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
           </div>
         </div>
 
-        {/* Banner when Sales Desk is inspecting Hamsalekha's ledger */}
+        {/* Banner when Kanchana is inspecting Hamsalekha's ledger */}
         {isSalesDeskAdmin && selectedSalesPerson === 'Hamsalekha' && (
           <div
             style={{
@@ -1132,18 +1137,18 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span>👁️</span>
-              <span>Viewing <strong>Hamsalekha's Dedicated Notes Ledger</strong> (Sales Desk Admin Access). Entries are kept separate from Sales Desk.</span>
+              <span>Viewing <strong>Hamsalekha's Dedicated Notes Ledger</strong> (Kanchana Admin Access). Entries are kept separate from Kanchana.</span>
             </div>
             <button
               type="button"
               onClick={() => {
-                setSelectedSalesPerson('Sales Desk');
-                setQuickNoteCreator('Sales Desk');
+                setSelectedSalesPerson('Kanchana');
+                setQuickNoteCreator('Kanchana');
                 setCurrentPage(1);
               }}
               style={{ padding: '4px 12px', borderRadius: '6px', backgroundColor: '#ffffff', border: '1px solid #86efac', color: '#166534', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}
             >
-              ← Back to Sales Desk Ledger
+              ← Back to Kanchana Ledger
             </button>
           </div>
         )}
@@ -2012,7 +2017,7 @@ export const SalesNotes: React.FC<SalesNotesProps> = ({
                     }}
                   >
                     <option value="Hamsalekha">👤 Hamsalekha (Sales 1)</option>
-                    {isSalesDeskAdmin && <option value="Sales Desk">👤 Sales Desk</option>}
+                    {isSalesDeskAdmin && <option value="Kanchana">👤 Kanchana</option>}
                   </select>
                 </div>
               </div>

@@ -303,16 +303,16 @@ export const Header: React.FC<HeaderProps> = ({
   const isCompletedStage = (stg: string | null | undefined) => 
     Boolean(stg && (stg === 'Customer Onboarding' || stg === 'Converted'));
 
-  const isIndividualSales = isSales && currentUser?.name && currentUser.name.toLowerCase() !== 'sales desk' && currentUser.username?.toLowerCase() !== 'sales';
+  const isIndividualSales = isSales && currentUser?.name && currentUser.name.toLowerCase() !== 'kanchana' && currentUser.name.toLowerCase() !== 'sales desk' && currentUser.username?.toLowerCase() !== 'sales';
 
   const matchesSalesScope = (n: Note) => {
-    const c = (n.created_by || 'Sales Desk').trim().toLowerCase();
+    const c = (n.created_by || 'Kanchana').trim().toLowerCase();
     if (isIndividualSales) {
       // Hamsalekha: strictly only views her own notes & reminders
       return c === 'hamsalekha' || c === 'amsulekha' || c === 'sales 1' || c === 'sales1';
     }
-    // Sales Desk: strictly only Sales Desk's own notes & reminders (never Hamsalekha's)
-    return c === 'sales desk' || c === 'sales';
+    // Kanchana: strictly only Kanchana / Sales Desk's own notes & reminders
+    return c === 'kanchana' || c === 'sales desk' || c === 'sales';
   };
 
   // Active uncompleted sales notes
@@ -1129,7 +1129,7 @@ export const Header: React.FC<HeaderProps> = ({
                     {isSales && (
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', padding: '6px 10px', backgroundColor: isIndividualSales ? '#ccfbf1' : '#f0f9ff', borderRadius: '8px', border: isIndividualSales ? '1px solid #99f6e4' : '1px solid #bae6fd' }}>
                         <span style={{ fontSize: '11.5px', fontWeight: 700, color: isIndividualSales ? '#0f766e' : '#0369a1' }}>
-                          {isIndividualSales ? '👤 Hamsalekha Follow-up Reminders' : '🏢 Sales Desk Follow-up Reminders'}
+                          {isIndividualSales ? '👤 Hamsalekha Follow-up Reminders' : '🏢 Kanchana Follow-up Reminders'}
                         </span>
                         <span style={{ fontSize: '10.5px', fontWeight: 800, padding: '2px 7px', borderRadius: '999px', backgroundColor: isIndividualSales ? '#14b8a6' : '#0284c7', color: '#ffffff' }}>
                           {activeSalesNotes.length}

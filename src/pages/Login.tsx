@@ -138,6 +138,8 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
           cleanUserLower === 'sales' ||
           cleanUserLower === 'salesdesk' ||
           cleanUserLower === 'sales desk' ||
+          cleanUserLower === 'kanchana' ||
+          cleanUserLower.startsWith('kanchana@') ||
           cleanUserLower.startsWith('sales@')
         );
 
@@ -183,18 +185,18 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
           setIsLoading(false);
           const salesSession: UserSession = {
             role: 'sales',
-            id: 'sales-1',
-            name: 'Sales Desk',
+            id: 'sales-kanchana',
+            name: 'Kanchana',
             username: 'sales',
-            email: 'sales@globalminds.com',
-            role_title: 'Sales & Counseling Desk · Global Minds'
+            email: 'kanchana@globalminds.com',
+            role_title: 'Sales Lead / Admin · Global Minds'
           };
           setCurrentUserSession(salesSession);
           onLoginSuccess(salesSession);
           return;
         } else {
           setIsLoading(false);
-          setErrorMsg('Invalid password for Sales Desk. Standard password is "sales".');
+          setErrorMsg('Invalid password for Kanchana. Standard password is "sales".');
           return;
         }
       }
@@ -690,11 +692,11 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                       onClick={() => {
                         const salesSession: UserSession = {
                           role: 'sales',
-                          id: 'sales-1',
-                          name: 'Sales Desk',
+                          id: 'sales-kanchana',
+                          name: 'Kanchana',
                           username: 'sales',
-                          email: 'sales@globalminds.com',
-                          role_title: 'Sales & Counseling Desk · Global Minds'
+                          email: 'kanchana@globalminds.com',
+                          role_title: 'Sales Lead / Admin · Global Minds'
                         };
                         setCurrentUserSession(salesSession);
                         onLoginSuccess(salesSession);
@@ -715,7 +717,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess }) => {
                         transition: 'all 0.15s ease'
                       }}
                     >
-                      <span>💼</span> Sales Desk
+                      <span>💼</span> Kanchana
                     </button>
                     <button
                       type="button"

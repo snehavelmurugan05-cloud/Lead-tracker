@@ -177,20 +177,25 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [editingSalesNote, setEditingSalesNote] = useState<Note | null>(null);
   const [noteToDelete, setNoteToDelete] = useState<Note | null>(null);
   const [showAddSalesNoteModal, setShowAddSalesNoteModal] = useState<boolean>(false);
-  // Check if current logged-in user is Sales Desk Admin (or System Admin)
+  // Check if current logged-in user is Kanchana (Sales Admin) or System Admin
   const isSalesDeskAdmin = user?.role === 'admin' ||
     (user?.role === 'sales' && (
+      (user?.name || '').trim().toLowerCase() === 'kanchana' ||
       (user?.name || '').trim().toLowerCase() === 'sales desk' ||
       (user?.username || '').trim().toLowerCase() === 'sales'
     ));
 
   const [selectedSalesPerson, setSelectedSalesPerson] = useState<string>(() => {
-    if (user?.role === 'sales' && (user?.name?.toLowerCase() !== 'sales desk' && user?.username?.toLowerCase() !== 'sales')) {
+    if (user?.role === 'sales' && (
+      user?.name?.toLowerCase() !== 'kanchana' &&
+      user?.name?.toLowerCase() !== 'sales desk' &&
+      user?.username?.toLowerCase() !== 'sales'
+    )) {
       return 'Hamsalekha';
     }
-    return 'Sales Desk';
+    return 'Kanchana';
   });
-  const [newSalesNoteCreator, setNewSalesNoteCreator] = useState<string>(() => user?.name || 'Hamsalekha');
+  const [newSalesNoteCreator, setNewSalesNoteCreator] = useState<string>(() => user?.name || 'Kanchana');
   const [newSalesNoteContent, setNewSalesNoteContent] = useState<string>('');
   const [newSalesNoteStage, setNewSalesNoteStage] = useState<NoteStage | ''>('');
   const [newSalesNoteCategory, setNewSalesNoteCategory] = useState<SalesWorkstreamCategory | ''>('');
@@ -642,11 +647,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const maxCourseCount = Math.max(...courseInterestCounts.map(c => c.count), 1);
 
   // Sales Person list and scoped notes
+  // Sales Person list and scoped notes
   const salesPersonsList = useMemo(() => {
     if (!isSalesDeskAdmin) {
       return ['Hamsalekha'];
     }
-    const list = ['Sales Desk', 'Hamsalekha'];
+    const list = ['Kanchana', 'Hamsalekha'];
     salesNotes.forEach(n => {
       if (n.created_by && n.created_by !== 'Admin' && n.created_by !== 'System' && !list.includes(n.created_by)) {
         list.push(n.created_by);
@@ -655,7 +661,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return list;
   }, [salesNotes, isSalesDeskAdmin]);
 
-  // Scoped sales notes according to selectedSalesPerson workspace ('Sales Desk' vs 'Hamsalekha')
+  // Scoped sales notes according to selectedSalesPerson workspace ('Kanchana' vs 'Hamsalekha')
   const scopedSalesNotes = useMemo(() => {
     return salesNotes.filter(n => {
       if (n.role === 'admin' || n.created_by === 'Admin') return false;
@@ -664,13 +670,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
         const creator = (n.created_by || '').trim().toLowerCase();
         return creator === 'hamsalekha' || creator === 'amsulekha' || creator === 'sales 1' || creator === 'sales1';
       }
-      const creator = (n.created_by || 'Sales Desk').trim().toLowerCase();
+      const creator = (n.created_by || 'Kanchana').trim().toLowerCase();
       const sel = selectedSalesPerson.trim().toLowerCase();
       if (sel === 'hamsalekha' || sel === 'amsulekha' || sel === 'sales 1' || sel === 'sales1') {
         return creator === 'hamsalekha' || creator === 'amsulekha' || creator === 'sales 1' || creator === 'sales1';
       }
-      // Sales Desk page: strictly only Sales Desk notes! Never mixed with Hamsalekha's!
-      return creator === 'sales desk' || creator === 'sales' || (!creator && sel === 'sales desk');
+      // Kanchana page: strictly only Kanchana / Sales Desk notes! Never mixed with Hamsalekha's!
+      return creator === 'kanchana' || creator === 'sales desk' || creator === 'sales' || (!creator && (sel === 'kanchana' || sel === 'sales desk'));
     });
   }, [salesNotes, selectedSalesPerson, isSalesDeskAdmin]);
 
@@ -1491,34 +1497,34 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
               {isSalesDeskAdmin ? (
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  {/* Sales Desk Own Workspace Button */}
+                  {/* Kanchana Own Workspace Button */}
                   <button
                     type="button"
                     onClick={() => {
-                      setSelectedSalesPerson('Sales Desk');
+                      setSelectedSalesPerson('Kanchana');
                       setSalesNotesCurrentPage(1);
                     }}
                     style={{
                       padding: '8px 18px',
                       borderRadius: '24px',
                       fontSize: '13px',
-                      fontWeight: selectedSalesPerson === 'Sales Desk' ? 800 : 600,
+                      fontWeight: selectedSalesPerson === 'Kanchana' || selectedSalesPerson === 'Sales Desk' ? 800 : 600,
                       cursor: 'pointer',
-                      border: selectedSalesPerson === 'Sales Desk' ? '2px solid #0284c7' : '1px solid #cbd5e1',
-                      backgroundColor: selectedSalesPerson === 'Sales Desk' ? '#e0f2fe' : '#ffffff',
-                      color: selectedSalesPerson === 'Sales Desk' ? '#0369a1' : '#64748b',
+                      border: selectedSalesPerson === 'Kanchana' || selectedSalesPerson === 'Sales Desk' ? '2px solid #0284c7' : '1px solid #cbd5e1',
+                      backgroundColor: selectedSalesPerson === 'Kanchana' || selectedSalesPerson === 'Sales Desk' ? '#e0f2fe' : '#ffffff',
+                      color: selectedSalesPerson === 'Kanchana' || selectedSalesPerson === 'Sales Desk' ? '#0369a1' : '#64748b',
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: '8px',
-                      boxShadow: selectedSalesPerson === 'Sales Desk' ? '0 2px 6px rgba(2,132,199,0.2)' : 'none',
+                      boxShadow: selectedSalesPerson === 'Kanchana' || selectedSalesPerson === 'Sales Desk' ? '0 2px 6px rgba(2,132,199,0.2)' : 'none',
                       transition: 'all 0.15s ease'
                     }}
                   >
-                    <span>🏢 Sales Desk (My Desk)</span>
-                    <span style={{ backgroundColor: selectedSalesPerson === 'Sales Desk' ? '#0284c7' : '#f1f5f9', color: selectedSalesPerson === 'Sales Desk' ? '#ffffff' : '#64748b', fontSize: '11px', fontWeight: 800, padding: '2px 8px', borderRadius: '999px' }}>
+                    <span>🏢 Kanchana (My Desk)</span>
+                    <span style={{ backgroundColor: selectedSalesPerson === 'Kanchana' || selectedSalesPerson === 'Sales Desk' ? '#0284c7' : '#f1f5f9', color: selectedSalesPerson === 'Kanchana' || selectedSalesPerson === 'Sales Desk' ? '#ffffff' : '#64748b', fontSize: '11px', fontWeight: 800, padding: '2px 8px', borderRadius: '999px' }}>
                       {salesNotes.filter(n => {
-                        const c = (n.created_by || 'Sales Desk').trim().toLowerCase();
-                        return n.role !== 'admin' && n.created_by !== 'Admin' && (c === 'sales desk' || c === 'sales');
+                        const c = (n.created_by || 'Kanchana').trim().toLowerCase();
+                        return n.role !== 'admin' && n.created_by !== 'Admin' && (c === 'kanchana' || c === 'sales desk' || c === 'sales');
                       }).length}
                     </span>
                   </button>
@@ -1617,7 +1623,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         )}
 
-        {/* Banner when Sales Desk is inspecting Hamsalekha's workspace */}
+        {/* Banner when Kanchana is inspecting Hamsalekha's workspace */}
         {isSales && isSalesDeskAdmin && selectedSalesPerson === 'Hamsalekha' && (
           <div
             style={{
@@ -1638,12 +1644,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ fontSize: '15px' }}>👁️</span>
               <span>
-                Viewing <strong>Hamsalekha's Dedicated Reports & Pipeline</strong> (Sales Desk Admin Access). All metrics and notes below are strictly Hamsalekha's.
+                Viewing <strong>Hamsalekha's Dedicated Reports & Pipeline</strong> (Kanchana Admin Access). All metrics and notes below are strictly Hamsalekha's.
               </span>
             </div>
             <button
               type="button"
-              onClick={() => setSelectedSalesPerson('Sales Desk')}
+              onClick={() => setSelectedSalesPerson('Kanchana')}
               style={{
                 padding: '5px 14px',
                 borderRadius: '8px',
@@ -1655,7 +1661,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 cursor: 'pointer'
               }}
             >
-              ← Back to My Sales Desk
+              ← Back to My Desk (Kanchana)
             </button>
           </div>
         )}
@@ -3898,12 +3904,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   <select
                     className="form-input"
                     style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', background: 'hsl(var(--background))' }}
-                    value={editingSalesNote.created_by || (isSalesDeskAdmin ? 'Sales Desk' : 'Hamsalekha')}
+                    value={editingSalesNote.created_by || (isSalesDeskAdmin ? 'Kanchana' : 'Hamsalekha')}
                     onChange={e => setEditingSalesNote({ ...editingSalesNote, created_by: e.target.value })}
                     disabled={!isSalesDeskAdmin}
                   >
                     <option value="Hamsalekha">👤 Hamsalekha (Sales 1)</option>
-                    {isSalesDeskAdmin && <option value="Sales Desk">👤 Sales Desk</option>}
+                    {isSalesDeskAdmin && <option value="Kanchana">👤 Kanchana</option>}
                   </select>
                 </div>
               </div>
@@ -4102,7 +4108,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     disabled={!isSalesDeskAdmin}
                   >
                     <option value="Hamsalekha">👤 Hamsalekha (Sales 1)</option>
-                    {isSalesDeskAdmin && <option value="Sales Desk">👤 Sales Desk</option>}
+                    {isSalesDeskAdmin && <option value="Kanchana">👤 Kanchana</option>}
                   </select>
                 </div>
               </div>

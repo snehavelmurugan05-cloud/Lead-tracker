@@ -70,7 +70,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const profileName = isEmployee
     ? currentUser.name
     : isSales
-    ? (currentUser?.name || 'Sales Desk')
+    ? (currentUser?.name || 'Kanchana')
     : 'Admin';
   const profileRole = isEmployee
     ? (currentUser.role_title || 'Team Member · Global Minds')
