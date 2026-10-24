@@ -18,14 +18,10 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.3",
-    "@types/three": "^0.185.4",
-    "face-api.js": "^0.22.2",
     "lucide-react": "^1.32.0",
-    "postprocessing": "^6.39.4",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.2",
-    "three": "^0.185.1",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
